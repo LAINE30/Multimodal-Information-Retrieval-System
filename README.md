@@ -30,6 +30,20 @@ Este proyecto implementa un sistema de Recuperación de Información Multimodal 
     ```bash
     pip install -r requirements.txt
     ```
+4.  Configurar variables de entorno:
+    Crea un archivo llamado `.env` en la raíz del proyecto (puedes basarte en `.env.example`) y agrega tu API Key de OpenAI:
+    ```text
+    OPENAI_API_KEY="tu_clave_aqui"
+    ```
+5.  Generar el Corpus y la Base de Datos Vectorial (Solo la primera vez):
+    Dado que los archivos grandes e imágenes están en el `.gitignore`, debes descargar la data y generar los vectores de CLIP localmente:
+    ```bash
+    # Descarga imágenes y metadata (~5 min)
+    python src/data_processing.py
+    
+    # Genera embeddings e indexa en ChromaDB (~2 min, descargará el modelo ViT-B-32)
+    python -m src.index_corpus
+    ```
 
 ## Estructura del Proyecto
 
@@ -60,16 +74,7 @@ Para iniciar la interfaz web conversacional, ejecuta el siguiente comando desde 
 streamlit run src/app.py
 ```
 
-## Estado Actual (Progreso)
-- ✅ **Fase A (Corpus)**: Dataset de Amazon 2023 con metadatos e imágenes descargados y estructurados.
-- ✅ **Fase B (Embeddings)**: Integración del modelo CLIP de Hugging Face para generar vectores multimodales.
-- ✅ **Fase C (VectorDB)**: Configuración e inicialización de ChromaDB para guardar índices vectoriales y metadatos localmente.
-- ✅ **Fase D (Pipeline RAG)**: Retriever conectando queries con ChromaDB + Generator con LangChain (OpenAI).
-- ✅ **Fase E (Interfaz Web)**: Streamlit chat implementado con capacidad de mostrar evidencia visual.
-- ⏳ **Siguientes Pasos (Fase Excelencia)**:
-  - Implementar Re-Ranking (Cross-Encoder)
-  - Añadir Memoria Conversacional (Chat History con LLM)
-  - Testeo intensivo y ajuste fino
+
 
 ## Desarrollo y Tests
 
