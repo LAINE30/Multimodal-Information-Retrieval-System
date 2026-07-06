@@ -4,6 +4,7 @@ Este proyecto implementa un sistema de Recuperación de Información Multimodal 
 
 ## Características Principales
 
+*   **Corpus Multimodal**: Emplea un subconjunto del **Amazon Reviews 2023 Dataset**, que incluye la metadata (títulos, características, descripciones) e imágenes de productos de diferentes categorías (como Electrónica, Videojuegos, Instrumentos Musicales).
 *   **Embeddings Multimodales**: Utiliza modelos basados en CLIP para representar tanto el texto como las imágenes en un mismo espacio vectorial.
 *   **Base de Datos Vectorial**: Almacena e indexa los embeddings utilizando FAISS o ChromaDB para una recuperación eficiente (búsqueda Top-k).
 *   **Pipeline RAG**: Implementa un flujo completo: recibe la consulta, recupera documentos relevantes, construye el contexto y genera una respuesta utilizando un LLM.
@@ -58,6 +59,17 @@ Para iniciar la interfaz web conversacional, ejecuta el siguiente comando desde 
 ```bash
 streamlit run src/app.py
 ```
+
+## Estado Actual (Progreso)
+- ✅ **Fase A (Corpus)**: Dataset de Amazon 2023 con metadatos e imágenes descargados y estructurados.
+- ✅ **Fase B (Embeddings)**: Integración del modelo CLIP de Hugging Face para generar vectores multimodales.
+- ✅ **Fase C (VectorDB)**: Configuración e inicialización de ChromaDB para guardar índices vectoriales y metadatos localmente.
+- ✅ **Fase D (Pipeline RAG)**: Retriever conectando queries con ChromaDB + Generator con LangChain (OpenAI).
+- ✅ **Fase E (Interfaz Web)**: Streamlit chat implementado con capacidad de mostrar evidencia visual.
+- ⏳ **Siguientes Pasos (Fase Excelencia)**:
+  - Implementar Re-Ranking (Cross-Encoder)
+  - Añadir Memoria Conversacional (Chat History con LLM)
+  - Testeo intensivo y ajuste fino
 
 ## Desarrollo y Tests
 

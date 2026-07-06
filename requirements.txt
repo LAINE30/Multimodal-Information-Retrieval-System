@@ -9,3 +9,7 @@ langchain
 llama-index
 pytest
 python-dotenv
+datasets==2.21.0
+requests
+Pillow
+langchain-openai

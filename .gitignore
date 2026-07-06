@@ -11,3 +11,4 @@ data/embeddings/*
 .pytest_cache/
 .DS_Store
 .env.example
+.agents
