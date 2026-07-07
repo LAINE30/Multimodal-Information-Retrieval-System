@@ -2,7 +2,7 @@ import pytest
 from src.generation import RAGGenerator
 from unittest.mock import patch, MagicMock
 
-@patch('src.generation.ChatOpenAI')
+@patch('src.generation.ChatGoogleGenerativeAI')
 def test_rag_generator_format_context(mock_chat):
     generator = RAGGenerator()
     docs = [
@@ -16,7 +16,7 @@ def test_rag_generator_format_context(mock_chat):
     assert "Piano" in context
 
 @patch('src.generation.PromptTemplate')
-@patch('src.generation.ChatOpenAI')
+@patch('src.generation.ChatGoogleGenerativeAI')
 def test_rag_generator_response(mock_chat, mock_prompt):
     # Simular la respuesta del modelo en la cadena LCEL
     mock_response = MagicMock()

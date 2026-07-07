@@ -2,18 +2,22 @@
 Interfaz web principal utilizando Streamlit.
 """
 import streamlit as st
+import sys
 import os
+# Añadir el directorio raíz al path para que Python encuentre el paquete 'src'
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from dotenv import load_dotenv
 
-# Cargar variables de entorno (como OPENAI_API_KEY)
+# Cargar variables de entorno (como GOOGLE_API_KEY)
 load_dotenv()
 
 # Configuración de página
 st.set_page_config(page_title="RAG Multimodal de Productos", layout="wide")
 
 # Solo inicializamos el pipeline si la API Key está configurada (para no arrojar error feo al inicio)
-if "OPENAI_API_KEY" not in os.environ or not os.environ["OPENAI_API_KEY"]:
-    st.error("⚠️ No se encontró la variable OPENAI_API_KEY. Por favor, añádela a tu archivo .env o al entorno antes de continuar.")
+if "GOOGLE_API_KEY" not in os.environ or not os.environ["GOOGLE_API_KEY"]:
+    st.error("⚠️ No se encontró la variable GOOGLE_API_KEY. Por favor, añádela a tu archivo .env o al entorno antes de continuar.")
     st.stop()
 
 # Cachear la inicialización de los modelos para que no se recarguen en cada iteración de Streamlit
@@ -24,7 +28,7 @@ def load_pipeline():
     from src.generation import RAGGenerator
     
     retriever = MultimodalRetriever()
-    generator = RAGGenerator(model_name="gpt-3.5-turbo", temperature=0.7)
+    generator = RAGGenerator(model_name="gemini-2.5-flash", temperature=0.7)
     return retriever, generator
 
 with st.spinner("Cargando modelo CLIP y base de datos (Esto toma unos segundos la primera vez)..."):

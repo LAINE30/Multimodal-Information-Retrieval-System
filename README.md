@@ -6,8 +6,8 @@ Este proyecto implementa un sistema de Recuperación de Información Multimodal 
 
 *   **Corpus Multimodal**: Emplea un subconjunto del **Amazon Reviews 2023 Dataset**, que incluye la metadata (títulos, características, descripciones) e imágenes de productos de diferentes categorías (como Electrónica, Videojuegos, Instrumentos Musicales).
 *   **Embeddings Multimodales**: Utiliza modelos basados en CLIP para representar tanto el texto como las imágenes en un mismo espacio vectorial.
-*   **Base de Datos Vectorial**: Almacena e indexa los embeddings utilizando FAISS o ChromaDB para una recuperación eficiente (búsqueda Top-k).
-*   **Pipeline RAG**: Implementa un flujo completo: recibe la consulta, recupera documentos relevantes, construye el contexto y genera una respuesta utilizando un LLM.
+*   **Base de Datos Vectorial**: Almacena e indexa los embeddings utilizando **ChromaDB** para una recuperación eficiente (búsqueda Top-k).
+*   **Pipeline RAG**: Implementa un flujo completo: recibe la consulta, recupera documentos relevantes, construye el contexto y genera una respuesta utilizando **Gemini (Google GenAI)**.
 *   **Interfaz Conversacional**: Interfaz web construida con Streamlit que permite realizar consultas, visualizar respuestas y examinar las evidencias (documentos e imágenes recuperadas) utilizadas para la generación.
 
 ## Requisitos Previos
@@ -31,9 +31,9 @@ Este proyecto implementa un sistema de Recuperación de Información Multimodal 
     pip install -r requirements.txt
     ```
 4.  Configurar variables de entorno:
-    Crea un archivo llamado `.env` en la raíz del proyecto (puedes basarte en `.env.example`) y agrega tu API Key de OpenAI:
+    Crea un archivo llamado `.env` en la raíz del proyecto (puedes basarte en `.env.example`) y agrega tu API Key de Google (Gemini):
     ```text
-    OPENAI_API_KEY="tu_clave_aqui"
+    GOOGLE_API_KEY="tu_clave_aqui"
     ```
 5.  Generar el Corpus y la Base de Datos Vectorial (Solo la primera vez):
     Dado que los archivos grandes e imágenes están en el `.gitignore`, debes descargar la data y generar los vectores de CLIP localmente:

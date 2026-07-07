@@ -2,7 +2,7 @@
 Módulo para la generación de respuestas usando un LLM (Retrieval-Augmented Generation).
 """
 import os
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from typing import List, Dict, Any
 
@@ -11,14 +11,13 @@ class RAGGenerator:
     Clase que maneja la formulación del contexto y la generación de la respuesta
     conversacional usando un modelo de lenguaje.
     """
-    def __init__(self, model_name: str = "gpt-3.5-turbo", temperature: float = 0.7):
+    def __init__(self, model_name: str = "gemini-2.5-flash", temperature: float = 0.7):
         """
-        Inicializa el modelo de lenguaje de LangChain.
-        Nota: Requiere que la variable de entorno OPENAI_API_KEY esté configurada.
+        Inicializa el modelo de lenguaje de LangChain (Gemini).
+        Nota: Requiere que la variable de entorno GOOGLE_API_KEY esté configurada.
         """
-        # Si no hay API key, inicializar fallará al intentar invocar,
-        # lo cual es esperado para obligar al usuario a colocar su clave en .env
-        self.llm = ChatOpenAI(model=model_name, temperature=temperature)
+        # Si no hay API key, inicializar fallará al intentar invocar
+        self.llm = ChatGoogleGenerativeAI(model=model_name, temperature=temperature)
         
         # Definir el template del RAG
         prompt_template = """
