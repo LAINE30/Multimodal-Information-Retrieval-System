@@ -46,8 +46,9 @@ class CLIPEmbedder:
         images = []
         for path in image_paths:
             try:
-                img = Image.open(path).convert("RGB")
-                images.append(self.preprocess(img))
+                with Image.open(path) as img:
+                    img_rgb = img.convert("RGB")
+                images.append(self.preprocess(img_rgb))
             except Exception as e:
                 print(f"Error cargando la imagen {path}: {e}")
                 # Si falla, añadimos un tensor vacío para no romper el batch

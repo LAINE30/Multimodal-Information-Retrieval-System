@@ -19,7 +19,7 @@ class RAGGenerator:
         # Si no hay API key, inicializar fallará al intentar invocar
         self.llm = ChatGoogleGenerativeAI(model=model_name, temperature=temperature)
         
-        # Definir el template del RAG
+        # Definir el template del RAG (soporta consultas por texto e imagen)
         prompt_template = """
         Eres un asistente experto de compras. Utiliza la siguiente información de productos (contexto)
         recuperada de nuestra base de datos para responder a la pregunta del usuario.
@@ -28,6 +28,9 @@ class RAGGenerator:
         1. Responde de forma amigable y conversacional.
         2. Si recomiendas un producto del contexto, menciona su título y alguna característica relevante.
         3. Si la respuesta no está en el contexto, indica amablemente que no encontraste información exacta, pero sugiere algo relacionado si es posible.
+        4. Si el tipo de consulta es "imagen", el usuario subió una foto para buscar productos similares. Describe los productos encontrados que se asemejan visualmente a lo que el usuario buscó.
+        
+        Tipo de Consulta: {query_type}
         
         Contexto Recuperado:
         {context}
@@ -38,7 +41,7 @@ class RAGGenerator:
         """
         
         self.prompt = PromptTemplate(
-            input_variables=["context", "question"],
+            input_variables=["context", "question", "query_type"],
             template=prompt_template
         )
         
@@ -59,13 +62,14 @@ class RAGGenerator:
             
         return "\n\n".join(context_parts)
 
-    def generate_response(self, query: str, retrieved_docs: List[Dict[str, Any]]) -> str:
+    def generate_response(self, query: str, retrieved_docs: List[Dict[str, Any]], query_type: str = "texto") -> str:
         """
         Genera la respuesta final usando el contexto recuperado.
         
         Args:
-            query: La consulta original del usuario.
+            query: La consulta original del usuario (texto descriptivo o "Búsqueda por imagen").
             retrieved_docs: Los resultados devueltos por MultimodalRetriever.
+            query_type: "texto" si el usuario escribió, "imagen" si subió una foto.
             
         Returns:
             La respuesta generada por el LLM en formato de texto.
@@ -73,7 +77,11 @@ class RAGGenerator:
         context_str = self.format_context(retrieved_docs)
         
         try:
-            response = self.chain.invoke({"context": context_str, "question": query})
+            response = self.chain.invoke({
+                "context": context_str, 
+                "question": query,
+                "query_type": query_type
+            })
             return response.content
         except Exception as e:
             return f"Error generando la respuesta (¿Revisaste tu API Key en el archivo .env?): {e}"

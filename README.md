@@ -8,7 +8,8 @@ Este proyecto implementa un sistema de Recuperación de Información Multimodal 
 *   **Embeddings Multimodales**: Utiliza modelos basados en CLIP para representar tanto el texto como las imágenes en un mismo espacio vectorial.
 *   **Base de Datos Vectorial**: Almacena e indexa los embeddings utilizando **ChromaDB** para una recuperación eficiente (búsqueda Top-k).
 *   **Pipeline RAG**: Implementa un flujo completo: recibe la consulta, recupera documentos relevantes, construye el contexto y genera una respuesta utilizando **Gemini (Google GenAI)**.
-*   **Interfaz Conversacional**: Interfaz web construida con Streamlit que permite realizar consultas, visualizar respuestas y examinar las evidencias (documentos e imágenes recuperadas) utilizadas para la generación.
+*   **Búsqueda por Imagen**: Permite subir fotografías para encontrar productos visualmente similares usando los embeddings de CLIP.
+*   **Interfaz Conversacional**: Interfaz web construida con Streamlit que permite realizar consultas por texto o imagen, visualizar respuestas y examinar las evidencias (documentos e imágenes recuperadas) utilizadas para la generación.
 
 ## Requisitos Previos
 
@@ -56,7 +57,7 @@ Este proyecto implementa un sistema de Recuperación de Información Multimodal 
 │   ├── app.py             # Interfaz web principal en Streamlit
 │   ├── data_processing.py # Scripts para cargar y procesar el corpus
 │   ├── embeddings.py      # Generación de representaciones vectoriales
-│   ├── vector_db.py       # Configuración y consultas a FAISS/ChromaDB
+│   ├── vector_db.py       # Configuración y consultas a ChromaDB
 │   ├── retrieval.py       # Lógica de búsqueda vectorial (Top-k)
 │   └── generation.py      # Generación de respuestas (LLM)
 ├── tests/                 # Tests unitarios para los módulos
