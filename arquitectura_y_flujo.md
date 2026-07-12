@@ -243,6 +243,50 @@ Pregunta del Usuario: {question}
 
 ## Tecnologías y Versiones
 
+---
+
+## Módulo de Evaluación
+
+### `evaluation_metrics.py` — Métricas de Recuperación de Información
+
+**Propósito:** Implementar las métricas estándar de IR para medir la calidad de los resultados del sistema de recuperación.
+
+**Funciones:**
+
+| Función | Qué mide | Fórmula simplificada |
+|---------|----------|---------------------|
+| `precision_at_k(retrieved, relevant, k)` | Proporción de documentos relevantes entre los Top-K recuperados. | `|relevantes en Top-k| / k` |
+| `recall_at_k(retrieved, relevant, k)` | Proporción de documentos relevantes totales que fueron encontrados en el Top-K. | `|relevantes en Top-k| / |total relevantes|` |
+| `dcg_at_k(retrieved, relevant, k)` | Ganancia acumulativa descontada: penaliza documentos relevantes que aparecen abajo en el ranking. | `Σ rel_i / log2(i+1)` |
+| `ndcg_at_k(retrieved, relevant, k)` | DCG normalizado por el DCG ideal (si todos los relevantes estuvieran arriba). Escala de 0 a 1. | `DCG@k / IDCG@k` |
+
+---
+
+### `evaluate.py` — Script de Evaluación Completa
+
+**Propósito:** Orquestar la evaluación del sistema de extremo a extremo.
+
+**Flujo de `run_evaluation()`:**
+
+```
+1. Carga data/evaluation/qrels.json (20 queries con sus documentos relevantes)
+2. Instancia MultimodalRetriever() (CLIP + ChromaDB)
+3. Para cada query con documentos relevantes anotados:
+   a. Ejecuta retriever.retrieve(query_text, top_k=10)
+   b. Extrae los IDs de los documentos recuperados
+   c. Calcula Precision@k, Recall@k y NDCG@k para k = [1, 3, 5, 10]
+   d. Acumula las métricas para calcular promedios
+4. Imprime un reporte tabular en consola
+5. Guarda los resultados completos en data/evaluation/evaluation_results.json
+```
+
+**Archivo de Qrels (`data/evaluation/qrels.json`):**
+Contiene 20 consultas manualmente anotadas que cubren las categorías del corpus: Musical Instruments, Pet Supplies y Video Games. Cada query especifica los IDs de los documentos que se consideran relevantes (ground truth).
+
+---
+
+## Tecnologías y Versiones
+
 | Tecnología | Uso en el proyecto | Versión |
 |------------|-------------------|---------|
 | Python | Lenguaje principal | 3.8+ |
@@ -254,3 +298,5 @@ Pregunta del Usuario: {question}
 | Gemini 2.5 Flash | LLM para generación de respuestas conversacionales | 2.5 |
 | Pillow (PIL) | Manipulación de imágenes (abrir, convertir, guardar) | latest |
 | HuggingFace Datasets | Carga del dataset Amazon Reviews 2023 en streaming | latest |
+| NumPy | Cálculos numéricos y métricas de evaluación | latest |
+

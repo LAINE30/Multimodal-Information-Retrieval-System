@@ -10,6 +10,7 @@ Este proyecto implementa un sistema de Recuperación de Información Multimodal 
 *   **Pipeline RAG**: Implementa un flujo completo: recibe la consulta, recupera documentos relevantes, construye el contexto y genera una respuesta utilizando **Gemini (Google GenAI)**.
 *   **Búsqueda por Imagen**: Permite subir fotografías para encontrar productos visualmente similares usando los embeddings de CLIP.
 *   **Interfaz Conversacional**: Interfaz web construida con Streamlit que permite realizar consultas por texto o imagen, visualizar respuestas y examinar las evidencias (documentos e imágenes recuperadas) utilizadas para la generación.
+*   **Evaluación del Sistema**: Módulo de evaluación experimental con métricas estándar de Recuperación de Información: Precision@k, Recall@k y NDCG@k.
 
 ## Requisitos Previos
 
@@ -49,22 +50,26 @@ Este proyecto implementa un sistema de Recuperación de Información Multimodal 
 ## Estructura del Proyecto
 
 ```text
-├── data/                  # Almacenamiento de datos (corpus, embeddings)
-│   ├── raw/               # Corpus original (texto e imágenes)
-│   ├── processed/         # Datos preprocesados
-│   └── embeddings/        # Vectores generados por CLIP
-├── src/                   # Código fuente de la aplicación
-│   ├── app.py             # Interfaz web principal en Streamlit
-│   ├── data_processing.py # Scripts para cargar y procesar el corpus
-│   ├── embeddings.py      # Generación de representaciones vectoriales
-│   ├── vector_db.py       # Configuración y consultas a ChromaDB
-│   ├── retrieval.py       # Lógica de búsqueda vectorial (Top-k)
-│   └── generation.py      # Generación de respuestas (LLM)
-├── tests/                 # Tests unitarios para los módulos
-├── .agents/               # Reglas y contexto para asistentes de IA (AGENTS.md)
-├── .env.example           # Ejemplo de variables de entorno
-├── requirements.txt       # Dependencias del proyecto
-└── README.md              # Documentación del proyecto
+├── data/                       # Almacenamiento de datos (corpus, embeddings)
+│   ├── raw/images/             # Imágenes descargadas del corpus
+│   ├── processed/corpus.json   # Datos preprocesados (metadatos + rutas)
+│   └── evaluation/             # Queries de evaluación (qrels) y resultados
+├── src/                        # Código fuente de la aplicación
+│   ├── app.py                  # Interfaz web principal en Streamlit
+│   ├── data_processing.py      # Scripts para cargar y procesar el corpus
+│   ├── embeddings.py           # Generación de representaciones vectoriales (CLIP)
+│   ├── vector_db.py            # Configuración y consultas a ChromaDB
+│   ├── retrieval.py            # Lógica de búsqueda vectorial (Top-k)
+│   ├── generation.py           # Generación de respuestas (LLM Gemini)
+│   ├── index_corpus.py         # Script de indexación del corpus en ChromaDB
+│   ├── evaluation_metrics.py   # Métricas: Precision@k, Recall@k, NDCG@k
+│   └── evaluate.py             # Script para ejecutar la evaluación completa
+├── tests/                      # Tests unitarios para los módulos
+├── .agents/                    # Reglas y contexto para asistentes de IA
+├── arquitectura_y_flujo.md     # Documentación detallada de la arquitectura
+├── .env.example                # Ejemplo de variables de entorno
+├── requirements.txt            # Dependencias del proyecto
+└── README.md                   # Documentación del proyecto
 ```
 
 ## Ejecución
@@ -75,7 +80,15 @@ Para iniciar la interfaz web conversacional, ejecuta el siguiente comando desde 
 streamlit run src/app.py
 ```
 
+## Evaluación del Sistema
 
+Para ejecutar la evaluación experimental del sistema de recuperación con las métricas Precision@k, Recall@k y NDCG@k:
+
+```bash
+python src/evaluate.py
+```
+
+Los resultados se guardan en `data/evaluation/evaluation_results.json` y se imprimen en consola.
 
 ## Desarrollo y Tests
 

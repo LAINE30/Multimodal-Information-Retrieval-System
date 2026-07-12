@@ -1,0 +1,125 @@
+{
+    "description": "Conjunto de consultas de evaluación (qrels) para medir la calidad del sistema de recuperación. Cada consulta tiene una lista de IDs de documentos que se consideran relevantes manualmente.",
+    "queries": [
+        {
+            "query_id": "q01",
+            "query_text": "drum set for beginners",
+            "relevant_doc_ids": ["raw_meta_Musical_Instruments_B01M4HO6RK"],
+            "category_hint": "Musical_Instruments"
+        },
+        {
+            "query_id": "q02",
+            "query_text": "acoustic guitar",
+            "relevant_doc_ids": ["raw_meta_Musical_Instruments_B000S5JGMU", "raw_meta_Musical_Instruments_B006O64JMY"],
+            "category_hint": "Musical_Instruments"
+        },
+        {
+            "query_id": "q03",
+            "query_text": "professional microphone for podcast recording",
+            "relevant_doc_ids": ["raw_meta_Musical_Instruments_B0B89ZSYS7"],
+            "category_hint": "Musical_Instruments"
+        },
+        {
+            "query_id": "q04",
+            "query_text": "power amplifier for speakers",
+            "relevant_doc_ids": ["raw_meta_Musical_Instruments_B00508JFE4", "raw_meta_Musical_Instruments_B002EEP8F2"],
+            "category_hint": "Musical_Instruments"
+        },
+        {
+            "query_id": "q05",
+            "query_text": "violin for learning music",
+            "relevant_doc_ids": ["raw_meta_Musical_Instruments_B00HXKFQLI"],
+            "category_hint": "Musical_Instruments"
+        },
+        {
+            "query_id": "q06",
+            "query_text": "electric guitar black with accessories",
+            "relevant_doc_ids": ["raw_meta_Musical_Instruments_B008CMVWOG", "raw_meta_Musical_Instruments_B006O64JMY"],
+            "category_hint": "Musical_Instruments"
+        },
+        {
+            "query_id": "q07",
+            "query_text": "soundproofing acoustic foam panels for studio",
+            "relevant_doc_ids": ["raw_meta_Musical_Instruments_B07F953NBY"],
+            "category_hint": "Musical_Instruments"
+        },
+        {
+            "query_id": "q08",
+            "query_text": "guitar stand holder",
+            "relevant_doc_ids": ["raw_meta_Musical_Instruments_B0891SBM1L"],
+            "category_hint": "Musical_Instruments"
+        },
+        {
+            "query_id": "q09",
+            "query_text": "wireless microphone system for presentations",
+            "relevant_doc_ids": ["raw_meta_Musical_Instruments_B00B2HLWZW", "raw_meta_Musical_Instruments_B01547ST2E"],
+            "category_hint": "Musical_Instruments"
+        },
+        {
+            "query_id": "q10",
+            "query_text": "kalimba thumb piano gift for kids",
+            "relevant_doc_ids": ["raw_meta_Musical_Instruments_B08K8V4JCY"],
+            "category_hint": "Musical_Instruments"
+        },
+        {
+            "query_id": "q11",
+            "query_text": "dog harness adjustable no pull",
+            "relevant_doc_ids": ["raw_meta_Pet_Supplies_B00XJG2SLG", "raw_meta_Pet_Supplies_B07DYM6LXD", "raw_meta_Pet_Supplies_B07MJX4HHQ", "raw_meta_Pet_Supplies_B09L8JV8NP", "raw_meta_Pet_Supplies_B07R9P7N2Q"],
+            "category_hint": "Pet_Supplies"
+        },
+        {
+            "query_id": "q12",
+            "query_text": "cat bed house indoor",
+            "relevant_doc_ids": ["raw_meta_Pet_Supplies_B07PFF6H6M", "raw_meta_Pet_Supplies_B07ZLNDYVZ", "raw_meta_Pet_Supplies_B09ZTMTS6N"],
+            "category_hint": "Pet_Supplies"
+        },
+        {
+            "query_id": "q13",
+            "query_text": "dog food dry",
+            "relevant_doc_ids": ["raw_meta_Pet_Supplies_B00F3JRLYQ"],
+            "category_hint": "Pet_Supplies"
+        },
+        {
+            "query_id": "q14",
+            "query_text": "aquarium fish tank heater",
+            "relevant_doc_ids": ["raw_meta_Pet_Supplies_B085Y66BVM"],
+            "category_hint": "Pet_Supplies"
+        },
+        {
+            "query_id": "q15",
+            "query_text": "dog chew toy rope",
+            "relevant_doc_ids": ["raw_meta_Pet_Supplies_B07KM318NB", "raw_meta_Pet_Supplies_B07XFLKN4F"],
+            "category_hint": "Pet_Supplies"
+        },
+        {
+            "query_id": "q16",
+            "query_text": "zelda nintendo game",
+            "relevant_doc_ids": ["raw_meta_Video_Games_B07SZJZV88"],
+            "category_hint": "Video_Games"
+        },
+        {
+            "query_id": "q17",
+            "query_text": "gaming headset with microphone",
+            "relevant_doc_ids": ["raw_meta_Video_Games_B07J1TD61J", "raw_meta_Video_Games_B0C3LTVMNZ", "raw_meta_Video_Games_B00OLOQGAY", "raw_meta_Video_Games_B091TBL236"],
+            "category_hint": "Video_Games"
+        },
+        {
+            "query_id": "q18",
+            "query_text": "mechanical keyboard gaming RGB",
+            "relevant_doc_ids": ["raw_meta_Video_Games_B07B3RPWKK", "raw_meta_Video_Games_B07TTN1S96"],
+            "category_hint": "Video_Games"
+        },
+        {
+            "query_id": "q19",
+            "query_text": "nintendo switch case protective cover",
+            "relevant_doc_ids": ["raw_meta_Video_Games_B08MF1YQ7G", "raw_meta_Video_Games_B07YJJ85YD"],
+            "category_hint": "Video_Games"
+        },
+        {
+            "query_id": "q20",
+            "query_text": "PS5 stand with cooling fan and charger",
+            "relevant_doc_ids": ["raw_meta_Video_Games_B09FXRJ44J"],
+            "category_hint": "Video_Games"
+        }
+    ]
+}
