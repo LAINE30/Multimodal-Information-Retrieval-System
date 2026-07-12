@@ -198,7 +198,7 @@ Pregunta del Usuario: {question}
 
 ### `app.py` — Interfaz Web (Streamlit)
 
-**Propósito:** Proveer la interfaz gráfica del usuario. Maneja dos flujos de entrada (texto e imagen), muestra el historial del chat y renderiza las evidencias visuales.
+**Propósito:** Proveer la interfaz gráfica del usuario. Maneja dos flujos de entrada (texto e imagen), muestra el historial del chat, renderiza las evidencias visuales y muestra las métricas de evaluación.
 
 **Flujo de inicialización (se ejecuta una sola vez al arrancar):**
 ```
@@ -208,7 +208,9 @@ Pregunta del Usuario: {question}
 4. load_pipeline() [cacheada con @st.cache_resource]:
    a. Instancia MultimodalRetriever() → carga CLIP + ChromaDB
    b. Instancia RAGGenerator("gemini-2.5-flash") → conecta a la API de Google
-5. Crea el sidebar con st.file_uploader para imágenes
+5. Crea el sidebar con:
+   a. st.file_uploader para imágenes
+   b. Checkbox "Ver Dashboard de Evaluación Global" → Lee evaluation_results.json y dibuja métricas con st.line_chart()
 6. Inicializa st.session_state.messages = [] (historial del chat)
 ```
 
@@ -221,7 +223,8 @@ Pregunta del Usuario: {question}
 4. generator.generate_response(prompt, evidences, query_type="texto")
    → format_context() → chain.invoke() → Gemini API → response.content
 5. Se renderiza la respuesta + imágenes de las evidencias con st.image()
-6. Se guarda la respuesta en el historial
+6. Se dibuja un st.bar_chart() interactivo con los scores de confianza (Similitud) de los productos.
+7. Se guarda la respuesta en el historial
 ```
 
 **Flujo B — Consulta por imagen (cuando el usuario sube una foto en el sidebar):**
@@ -236,7 +239,8 @@ Pregunta del Usuario: {question}
 5. generator.generate_response("...subió una imagen...", evidences, query_type="imagen")
    → format_context() → chain.invoke() → Gemini API → response.content
 6. Se renderiza la respuesta + imágenes similares encontradas
-7. Se guarda la respuesta en el historial
+7. Se dibuja un st.bar_chart() interactivo con los scores de confianza.
+8. Se guarda la respuesta en el historial
 ```
 
 ---

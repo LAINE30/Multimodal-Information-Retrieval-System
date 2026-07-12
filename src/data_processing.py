@@ -17,7 +17,11 @@ CATEGORIES = [
     "raw_meta_Pet_Supplies",
     "raw_meta_Camera_and_Photo",
     "raw_meta_Electronics",
-    "raw_meta_Sports_and_Outdoors"
+    "raw_meta_Sports_and_Outdoors",
+    "raw_meta_Toys_and_Games",
+    "raw_meta_Home_and_Kitchen",
+    "raw_meta_Cell_Phones_and_Accessories",
+    "raw_meta_Office_Products"
 ]
 LIMIT_PER_CATEGORY = 50  # Puedes subir esto a 500, 1000 o más dependiendo de tu tiempo y espacio
 OUTPUT_CORPUS = "data/processed/corpus.json"

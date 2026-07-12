@@ -2,6 +2,7 @@
 Módulo para la generación de respuestas usando un LLM (Retrieval-Augmented Generation).
 """
 import os
+import google.generativeai as genai
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from typing import List, Dict, Any
@@ -18,6 +19,11 @@ class RAGGenerator:
         """
         # Si no hay API key, inicializar fallará al intentar invocar
         self.llm = ChatGoogleGenerativeAI(model=model_name, temperature=temperature)
+        
+        # Configurar el SDK nativo de Google para llamadas directas multimodales (ej. audio)
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if api_key:
+            genai.configure(api_key=api_key)
         
         # Definir el template del RAG (soporta consultas por texto e imagen)
         prompt_template = """
@@ -85,3 +91,23 @@ class RAGGenerator:
             return response.content
         except Exception as e:
             return f"Error generando la respuesta (¿Revisaste tu API Key en el archivo .env?): {e}"
+
+    def transcribe_audio(self, audio_bytes: bytes) -> str:
+        """
+        Transcribe un archivo de audio a texto usando Gemini.
+        
+        Args:
+            audio_bytes: Los bytes crudos del audio capturado (ej. formato WAV).
+            
+        Returns:
+            El texto transcrito por la IA.
+        """
+        try:
+            model = genai.GenerativeModel("gemini-2.5-flash")
+            response = model.generate_content([
+                {"mime_type": "audio/wav", "data": audio_bytes},
+                "Transcribe exactamente las palabras de este audio en su idioma original. No agregues comillas, saludos ni contexto. Solo el texto dicho."
+            ])
+            return response.text.strip()
+        except Exception as e:
+            return f"[Error en transcripción]: {e}"

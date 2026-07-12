@@ -13,3 +13,4 @@ datasets==2.21.0
 requests
 Pillow
 langchain-google-genai
+google-generativeai

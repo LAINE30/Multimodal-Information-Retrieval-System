@@ -4,12 +4,13 @@ Este proyecto implementa un sistema de Recuperación de Información Multimodal 
 
 ## Características Principales
 
-*   **Corpus Multimodal**: Emplea un subconjunto del **Amazon Reviews 2023 Dataset**, que incluye la metadata (títulos, características, descripciones) e imágenes de productos de diferentes categorías (como Electrónica, Videojuegos, Instrumentos Musicales).
+*   **Corpus Multimodal Ampliado**: Emplea un subconjunto del **Amazon Reviews 2023 Dataset**, que incluye 700 productos distribuidos en 10 categorías (Electrónica, Videojuegos, Instrumentos, Juguetes, Celulares, Hogar, etc.) junto con sus metadatos e imágenes.
 *   **Embeddings Multimodales**: Utiliza modelos basados en CLIP para representar tanto el texto como las imágenes en un mismo espacio vectorial.
 *   **Base de Datos Vectorial**: Almacena e indexa los embeddings utilizando **ChromaDB** para una recuperación eficiente (búsqueda Top-k).
 *   **Pipeline RAG**: Implementa un flujo completo: recibe la consulta, recupera documentos relevantes, construye el contexto y genera una respuesta utilizando **Gemini (Google GenAI)**.
-*   **Búsqueda por Imagen**: Permite subir fotografías para encontrar productos visualmente similares usando los embeddings de CLIP.
-*   **Interfaz Conversacional**: Interfaz web construida con Streamlit que permite realizar consultas por texto o imagen, visualizar respuestas y examinar las evidencias (documentos e imágenes recuperadas) utilizadas para la generación.
+*   **Búsqueda Visual Bidireccional**: Permite subir fotografías para encontrar productos visualmente similares usando los embeddings de CLIP.
+*   **Búsqueda por Voz (STT)**: Permite grabar audio desde el navegador y convertirlo a texto usando las capacidades nativas multimodales de la API de Gemini.
+*   **Interfaz Conversacional Avanzada**: Interfaz web construida con Streamlit (estilo App Gallery). Permite realizar consultas por texto, voz o imagen, visualizar respuestas, examinar gráficamente los niveles de similitud y ver el dashboard de evaluación del sistema.
 *   **Evaluación del Sistema**: Módulo de evaluación experimental con métricas estándar de Recuperación de Información: Precision@k, Recall@k y NDCG@k.
 
 ## Requisitos Previos
