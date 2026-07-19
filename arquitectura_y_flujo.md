@@ -8,12 +8,69 @@ Este documento explica en detalle cómo funciona el proyecto internamente: qué 
 
 Antes de entender el flujo, es vital conocer los conceptos fundamentales que le dan vida al sistema:
 
-1. **Embedding (Vector):** Es una lista de números (ej. 512 floats) que representa el "significado" de un texto o imagen en un espacio matemático. Dos cosas con significados similares tendrán vectores cercanos entre sí.
-2. **CLIP (Contrastive Language-Image Pretraining):** Es un modelo de IA creado por OpenAI. Su "magia" es que puede "leer" texto y "ver" imágenes, y convertir ambos en vectores dentro del **mismo espacio matemático**. Si tienes una foto de un perro y la palabra "Perro", CLIP los convertirá en dos vectores muy cercanos entre sí.
-3. **ChromaDB (Base de Datos Vectorial):** A diferencia de las bases de datos tradicionales (SQL) que buscan palabras exactas, ChromaDB guarda vectores y nos permite buscar por **similitud semántica** midiendo la distancia coseno entre ellos.
-4. **RAG (Retrieval-Augmented Generation):** Técnica donde, antes de pedirle a un LLM (como Gemini) que responda, primero buscamos "evidencias" en nuestra base de datos y se las "inyectamos" en el prompt. Así evitamos que la IA alucine, obligándola a responder basándose solo en nuestros datos reales.
-5. **LangChain (LCEL):** Framework que nos permite construir "cadenas" de procesamiento. En nuestro caso, conectamos un `PromptTemplate` → `ChatGoogleGenerativeAI` para crear un pipeline de generación de respuestas.
-6. **Similitud Coseno:** Medida matemática que compara dos vectores. Un valor cercano a 1.0 indica que son muy similares semánticamente; cercano a 0.0, que no se parecen.
+1. **Embedding (Vector):** Es una lista de números (ej. 512 floats) que representa el "significado" de un texto o imagen en un espacio matemático.
+2. **CLIP (Contrastive Language-Image Pretraining):** Modelo de IA de OpenAI que convierte texto e imágenes al mismo espacio vectorial.
+3. **ChromaDB:** Base de datos que guarda vectores y busca por similitud semántica.
+4. **RAG (Retrieval-Augmented Generation):** Técnica donde se recupera información y se "inyecta" en el prompt de un LLM para basar sus respuestas en datos reales.
+5. **LCEL (LangChain Expression Language):** Framework para construir cadenas de procesamiento.
+
+---
+
+## Diseño del Sistema de Recuperación de Información (RI)
+
+El proyecto implementa un pipeline moderno de Recuperación de Información adaptado a espacios latentes (Vectores). A continuación se explican las decisiones de diseño y los algoritmos matemáticos que intervienen internamente en cada parte del flujo:
+
+### 1. Representación de Documentos y Consultas (Embeddings)
+*   **Algoritmo / Enfoque:** Recuperación Semántica Densificada en Espacios Vectoriales.
+*   **Por qué usamos CLIP:** En la Recuperación de Información tradicional (como los modelos TF-IDF o BM25 usados en Elasticsearch), las búsquedas son puramente léxicas (coincidencia de palabras exactas). Esto falla si buscas "teléfono móvil" y el documento dice "smartphone". Nosotros usamos embeddings densos generados por CLIP (ViT-B-32). CLIP fue elegido específicamente porque proyecta el significado del texto y las características de la imagen en un **mismo espacio matemático de 512 dimensiones**, permitiendo búsquedas cross-modales (buscar una imagen describiéndola con texto, o buscar productos usando otra foto de referencia) de forma nativa sin necesitar OCR ni etiquetado manual.
+
+### 2. Indexación y Búsqueda Vectorial
+*   **Algoritmo / Estructura de Datos:** Búsqueda de Vecinos Más Cercanos Aproximados (ANN) utilizando grafos **HNSW** (Hierarchical Navigable Small World).
+*   **Por qué ChromaDB en lugar de FAISS:** 
+    *   Aunque el requerimiento inicial permitía FAISS o ChromaDB, se optó por **ChromaDB**. FAISS (creado por Facebook) es una librería ultrarrápida para operaciones en memoria, pero **carece de persistencia robusta de metadatos**. Si usáramos FAISS, tendríamos que manejar los vectores en RAM y mantener una base de datos SQLite separada para guardar los títulos, textos e imágenes, uniéndolos manualmente por ID.
+    *   **ChromaDB** resuelve esto ya que actúa como una base de datos completa. Internamente guarda los vectores organizados en un grafo HNSW (para búsquedas en tiempo logarítmico $\mathcal{O}(\log n)$ en vez de barridos lineales lentos) y paralelamente utiliza SQLite/Parquet para almacenar los metadatos (categoría, texto, URLs). Además, permite añadir persistencia a disco (`PersistentClient`) en una sola línea de código, evitando que el índice deba reconstruirse cada vez que se reinicia la aplicación en Streamlit.
+
+### 3. Función de Similitud (Ranking Top-K)
+*   **Algoritmo / Concepto:** Similitud Coseno y Producto Punto.
+*   **Cómo funciona en el flujo:** Cuando el Retriever recibe una consulta (ej. la voz transcrita), la convierte a vector y ChromaDB debe calcular su **Score de Relevancia (RSV)** contra los 700 productos indexados. Para hacer esto extremadamente rápido, en el módulo `embeddings.py` aplicamos una normalización $L2$ (Euclidiana) a los vectores de CLIP inmediatamente después de generarlos. Matematicamente, si dos vectores están normalizados a magnitud $1.0$, el cálculo de la Similitud Coseno se simplifica a un simple **Producto Punto (Dot Product)**. Esto acelera el ranking a nivel de CPU, devolviendo los $K$ vecinos más cercanos al instante.
+
+### 4. Re-ranking Semántico (Cross-Encoder) — *Pipeline de Dos Etapas*
+
+*   **Algoritmo / Modelo:** Cross-Encoder `ms-marco-MiniLM-L-6-v2` (Hugging Face, ~22MB).
+*   **Por qué no basta con CLIP:** CLIP es un **Bi-Encoder**: genera vectores de texto e imagen de forma *independiente* y luego los compara. Esto lo hace extremadamente rápido, pero pierde matices de relación sintáctica entre la consulta y el documento. Un **Cross-Encoder** analiza el par `(consulta, documento)` *en conjunto* usando **atención cruzada completa** (mecanismo de Transformers), lo que le permite capturar relaciones semánticas mucho más finas. El precio es la velocidad: no escala a millones de documentos.
+*   **Solución — Pipeline de Dos Etapas (Recall + Precision):**
+
+| Etapa | Modelo | Candidatos entrada | Candidatos salida | Objetivo |
+|---|---|---|---|---|
+| **Stage 1** | CLIP (Bi-Encoder) | 700 docs (corpus completo) | Top-20 candidatos | Máximo Recall rápido |
+| **Stage 2** | Cross-Encoder (ms-marco) | Top-20 candidatos | Top-3 finales | Máxima Precision semántica |
+
+*   **Implementación:** El método `retrieve_and_rerank()` en `retrieval.py` orquesta ambas etapas. El Cross-Encoder produce un score logit real (puede ser negativo). Los candidatos se re-ordenan de mayor a menor score. Solo se aplica a búsquedas de **texto y voz** (no a imagen, ya que el Cross-Encoder trabaja exclusivamente con pares texto-texto).
+
+### 5. Query Expansion (Reformulación Automática de Consultas)
+
+*   **Algoritmo / Concepto:** Expansión de consultas basada en LLM (Pseudo-Relevance Expansion).
+*   **Por qué es necesaria:** Un usuario puede buscar "guitarra para principiantes" pero el corpus contiene "acoustic guitar beginner" o "instrumento de cuerdas para novatos". CLIP captura similitud semántica, pero tiene límites. Expandir la consulta a múltiples variantes lingüísticas amplía la cobertura del espacio vectorial y mejora el **Recall**.
+*   **Implementación:** El módulo `src/query_expansion.py` usa Gemini para generar N reformulaciones. El método `retrieve_with_expansion()` en `retrieval.py` ejecuta un pipeline de 3 etapas:
+
+| Etapa | Modelo | Entrada | Salida | Objetivo |
+|---|---|---|---|---|
+| **Stage 0** | Gemini (LLM) | 1 query original | 4 variantes (orig + 3 expansiones) | Diversidad lingüística |
+| **Stage 1** | CLIP × 4 | 4 variantes | Pool unificado ~60 candidatos únicos | Máximo Recall |
+| **Stage 2** | Cross-Encoder | Pool completo | Top-3 finales | Máxima Precision |
+
+### 6. Relevance Feedback (Retroalimentación del Usuario)
+
+*   **Algoritmo / Concepto:** Algoritmo de Rocchio simplificado (Score-based).
+*   **En la teoría clásica de RI:** El algoritmo de Rocchio modifica el **vector de la consulta** acercándolo a los centros de los documentos relevantes y alejándolo de los no-relevantes. Nuestra implementación es una variante score-based: en vez de modificar vectores, ajustamos los **scores finales** del Cross-Encoder con un factor multiplicativo basado en el historial de feedback.
+*   **Fórmula:** `score_ajustado = score_original × (1.0 + α × (likes - dislikes) / (total + 1))` donde `α = 0.3`.
+*   **Implementación:** El módulo `src/relevance_feedback.py` persiste los votos 👍/👎 en `data/evaluation/relevance_feedback.json`. Cada vez que se realiza una búsqueda, `apply_feedback_to_results()` aplica el boost/penalización a los candidatos antes de presentarlos.
+
+### 7. Memoria Conversacional (Context-Aware Generation)
+
+*   **Concepto:** Inyección de historial conversacional en el prompt del LLM.
+*   **Por qué es necesaria:** Sin memoria, cada pregunta del usuario se trata de forma aislada. Si el usuario pregunta "¿tienes guitarras?" y luego dice "¿y alguna más barata?", el sistema sin memoria no entendería a qué se refiere. Con memoria conversacional, el LLM recibe los últimos turnos del chat como contexto adicional.
+*   **Implementación:** El método estático `RAGGenerator.format_chat_history()` en `src/generation.py` toma los últimos 6 mensajes de `st.session_state.messages`, los formatea como pares `Usuario:/Asistente:` (truncando respuestas largas a 300 caracteres) y los inyecta en la variable `{chat_history}` del prompt template. El LLM usa esta ventana deslizante para resolver **referencias anafóricas** ("ese producto", "el primero", "cuéntame más") y mantener coherencia conversacional.
 
 ---
 
@@ -61,8 +118,8 @@ Antes de entender el flujo, es vital conocer los conceptos fundamentales que le 
 **Propósito:** Conectarse al dataset público de Amazon Reviews 2023 (Hugging Face), descargar un subconjunto de productos con sus imágenes y crear el archivo estructurado `corpus.json`.
 
 **Constantes de configuración:**
-- `CATEGORIES`: Lista de 6 categorías del dataset (Instrumentos Musicales, Videojuegos, Mascotas, Cámaras, Electrónica, Deportes).
-- `LIMIT_PER_CATEGORY`: 50 productos por categoría (250 total).
+- `CATEGORIES`: Lista de 10 categorías del dataset (Instrumentos Musicales, Videojuegos, Mascotas, Cámaras, Electrónica, Deportes, Juguetes, Hogar/Cocina, Celulares, Productos de Oficina).
+- `LIMIT_PER_CATEGORY`: 50 productos por categoría o más (aproximadamente 700 productos en total que pasaron los filtros de calidad).
 - `OUTPUT_CORPUS`: Ruta de salida → `data/processed/corpus.json`.
 - `IMAGES_DIR`: Carpeta donde se guardan las fotos → `data/raw/images/`.
 
@@ -76,8 +133,8 @@ Antes de entender el flujo, es vital conocer los conceptos fundamentales que le 
 | `main()` | Orquesta todo: carga cada categoría en streaming, extrae datos con `extract_product_data()`, descarga la imagen con `download_image()`, y acumula los resultados. Al final guarda el `corpus.json`. | `load_dataset()` (HuggingFace) → `extract_product_data()` → `download_image()` → `json.dump()` |
 
 **Salida generada:**
-- `data/processed/corpus.json` — Array JSON con 250 objetos, cada uno con: `id`, `title`, `text`, `image_url`, `local_image_path`, `category`.
-- `data/raw/images/*.jpg` — 250 imágenes descargadas.
+- `data/processed/corpus.json` — Array JSON con ~700 objetos, cada uno con: `id`, `title`, `text`, `image_url`, `local_image_path`, `category`.
+- `data/raw/images/*.jpg` — ~700 imágenes descargadas localmente.
 
 ---
 

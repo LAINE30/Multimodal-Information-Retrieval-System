@@ -28,7 +28,13 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
     
-    /* Estilizar las tarjetas de productos (evidencias) usando variables del tema actual */
+    /* Eliminar espacio blanco superior */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+    }
+    
+    /* Estilizar las tarjetas de productos (evidencias) */
     div[data-testid="stColumn"] {
         background-color: var(--secondary-background-color);
         padding: 15px;
@@ -55,6 +61,14 @@ st.markdown("""
         opacity: 0.8;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
+    
+    /* Eliminar sidebar por completo */
+    [data-testid="collapsedControl"] {
+        display: none;
+    }
+    section[data-testid="stSidebar"] {
+        display: none;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -73,14 +87,22 @@ def load_pipeline():
 with st.spinner("Cargando modelo CLIP y base de datos..."):
     retriever, generator = load_pipeline()
 
+# Cargar el store de Relevance Feedback (persistente en JSON)
+from src.relevance_feedback import RelevanceFeedbackStore
+if "feedback_store" not in st.session_state:
+    st.session_state.feedback_store = RelevanceFeedbackStore()
+feedback_store = st.session_state.feedback_store
+
+# Importar el formateador de historial para memoria conversacional
+from src.generation import RAGGenerator as _RAGGen
+
 
 # ==========================================
-# MODALES (Ventanas Emergentes Full Screen)
+# FUNCIONES DE RENDERIZADO DE GRÁFICAS
 # ==========================================
 
-@st.dialog("📊 Análisis de Recuperación Vectorial", width="large")
-def show_similarity_dialog(evidences):
-    st.write("Este gráfico interactivo muestra el **Nivel de Confianza (Distancia Coseno)** que tuvo el modelo de IA al recuperar cada producto para tu consulta.")
+def render_similarity_chart(evidences):
+    st.write("Este gráfico muestra el **Nivel de Confianza (Distancia Coseno)** que tuvo el modelo de IA al recuperar cada producto en tu **última consulta**.")
     if not evidences:
         st.warning("No hay evidencias para mostrar.")
         return
@@ -93,34 +115,32 @@ def show_similarity_dialog(evidences):
     st.bar_chart(df, height=400, use_container_width=True)
 
 
-@st.dialog("📈 Dashboard de Evaluación Global", width="large")
-def show_global_dashboard():
+def render_global_dashboard():
     eval_path = "data/evaluation/evaluation_results.json"
     if os.path.exists(eval_path):
         with open(eval_path, "r", encoding="utf-8") as f:
             eval_data = json.load(f)
         summary = eval_data.get("summary", {})
         
-        st.write("### Rendimiento Promedio del Sistema")
-        st.write("Resultados calculados sobre el set de evaluación de 20 consultas usando métricas estándar de Information Retrieval.")
+        st.write("Resultados calculados sobre el set de evaluación (qrels) usando métricas estándar de Information Retrieval.")
         
         metrics_data = []
         for k in eval_data.get("k_values_evaluated", [1,3,5,10]):
             metrics_data.append({
-                "Top-K": f"k={k}",
+                "K": k,
                 "Precision": summary.get(f"mean_precision@{k}", 0),
                 "Recall": summary.get(f"mean_recall@{k}", 0),
                 "NDCG": summary.get(f"mean_ndcg@{k}", 0)
             })
         
         if metrics_data:
-            df_metrics = pd.DataFrame(metrics_data).set_index("Top-K")
+            df_metrics = pd.DataFrame(metrics_data).set_index("K")
             # Gráfico de líneas
             st.line_chart(df_metrics, height=400, use_container_width=True)
             
             # Tabla de datos
-            st.write("#### Tabla de Datos Crudos")
-            st.dataframe(df_metrics, use_container_width=True)
+            with st.expander("Ver Tabla de Datos Crudos"):
+                st.dataframe(df_metrics, use_container_width=True)
     else:
         st.info("No hay métricas disponibles. Ejecuta 'python src/evaluate.py' primero.")
 
@@ -130,49 +150,32 @@ def show_global_dashboard():
 # ==========================================
 
 st.title("🤖 Asistente Multimodal de Compras")
-st.markdown("Consulta productos por texto o sube una imagen para buscar coincidencias visuales impulsadas por IA.")
-
-# --- Sidebar ---
-with st.sidebar:
-    st.header("📸 Búsqueda Visual")
-    uploaded_file = st.file_uploader("Sube la foto de un producto", type=["jpg", "jpeg", "png", "webp"])
-    
-    if uploaded_file is not None:
-        uploaded_image = Image.open(uploaded_file).convert("RGB")
-        st.image(uploaded_image, caption="Tu imagen", use_container_width=True)
-        search_by_image = st.button("🔎 Buscar productos similares", use_container_width=True)
-    else:
-        uploaded_image = None
-        search_by_image = False
-        
-    st.markdown("---")
-    st.header("🎙️ Búsqueda por Voz")
-    st.write("Graba un audio para consultar productos.")
-    audio_value = st.audio_input("Grabar consulta")
-        
-    st.markdown("---")
-    st.header("📈 Evaluación del Modelo")
-    st.write("Explora el rendimiento matemático oficial del sistema (Precision, Recall, NDCG).")
-    
-    # Botón para abrir modal global
-    if st.button("Ver Dashboard Global", use_container_width=True):
-        show_global_dashboard()
-
 
 # Inicializar historial de chat
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# ==========================================
-# FUNCIONES AUXILIARES
-# ==========================================
-
-def render_evidences(evidences):
-    """Renderiza las evidencias en formato de tarjetas de producto."""
+def render_evidences(evidences, msg_key=""):
+    """Renderiza las evidencias en formato de tarjetas de producto con botones de feedback."""
     if not evidences:
         st.info("No se encontró información relevante.")
         return
     
+    # Determinar si los resultados fueron re-rankeados o expandidos
+    was_reranked = any(ev.get("reranked", False) for ev in evidences)
+    if was_reranked:
+        expanded_froms = list(dict.fromkeys([
+            ev.get("expanded_from", "") for ev in evidences if ev.get("expanded_from")
+        ]))
+        if expanded_froms:
+            with st.expander("🔎 Ver consultas expandidas utilizadas", expanded=False):
+                st.write("El sistema generó estas reformulaciones automáticas para mejorar la búsqueda:")
+                for i, q in enumerate(expanded_froms):
+                    icon = "🔵" if i == 0 else "🟢"
+                    st.write(f"{icon} `{q}`")
+        else:
+            st.markdown("✨ **Re-ranking activo:** Resultados refinados por Cross-Encoder.")
+
     st.markdown("##### 🛒 Productos Recomendados")
     cols = st.columns(len(evidences))
     for idx, ev in enumerate(evidences):
@@ -180,117 +183,161 @@ def render_evidences(evidences):
             if os.path.exists(ev["local_image_path"]):
                 st.image(ev["local_image_path"], use_container_width=True)
             st.markdown(f"**{ev['category']}**")
-            st.caption(f"Confianza: {ev['score']:.4f}")
+            # Mostrar score del re-ranker si existe, si no el score de CLIP
+            score_text = ""
+            if ev.get("reranked") and "rerank_score" in ev:
+                score_text = f"✨ Re-rank: {ev['rerank_score']:.2f} | CLIP: {ev['score']:.4f}"
+            else:
+                score_text = f"Confianza: {ev['score']:.4f}"
+            
+            # Mostrar boost de feedback si existe y no es neutro
+            boost = ev.get("feedback_boost", 1.0)
+            if boost != 1.0:
+                score_text += f" | Boost: {boost:.2f}"
+            st.caption(score_text)
+            
             with st.expander("Ver detalles"):
                 st.write(ev["text"])
-
-# ==========================================
-# RENDERIZADO DEL HISTORIAL DE CHAT
-# ==========================================
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        if "user_image" in msg and msg["user_image"] is not None:
-            st.image(msg["user_image"], width=150)
-        st.markdown(msg["content"])
-        
-        if msg["role"] == "assistant" and "evidences" in msg and msg["evidences"]:
-            render_evidences(msg["evidences"])
             
-            # Botón único por mensaje para abrir su propio modal
-            if st.button("📊 Análisis de Similitud", key=f"btn_hist_{msg.get('id_unique', hash(msg['content']))}"):
-                show_similarity_dialog(msg["evidences"])
+            # Botones de feedback (👍 / 👎)
+            fb_key = f"fb_{msg_key}_{ev['id']}_{idx}"
+            col_like, col_dislike = st.columns(2)
+            with col_like:
+                if st.button("👍", key=f"like_{fb_key}", use_container_width=True):
+                    feedback_store.add_feedback(ev["id"], is_relevant=True)
+                    st.toast(f"✅ ¡Feedback registrado para mejorar búsquedas futuras!")
+            with col_dislike:
+                if st.button("👎", key=f"dislike_{fb_key}", use_container_width=True):
+                    feedback_store.add_feedback(ev["id"], is_relevant=False)
+                    st.toast(f"📝 ¡Feedback registrado! Este producto será penalizado en futuras búsquedas.")
 
+# Crear los módulos principales (Tabs)
+tab_chat, tab_analysis = st.tabs(["💬 Chat Multimodal", "📈 Módulo de Análisis de Recuperación"])
 
-# ==========================================
-# FLUJO: BÚSQUEDA POR IMAGEN
-# ==========================================
-if search_by_image and uploaded_image is not None:
-    msg_id = str(time.time())
-    st.session_state.messages.append({"role": "user", "content": "🖼️ *Búsqueda por imagen subida*", "user_image": uploaded_image})
+with tab_chat:
+    # ==========================================
+    # RENDERIZADO DEL HISTORIAL DE CHAT
+    # ==========================================
+    for msg_idx, msg in enumerate(st.session_state.messages):
+        with st.chat_message(msg["role"]):
+            if "user_image" in msg and msg["user_image"] is not None:
+                st.image(msg["user_image"], width=150)
+            st.markdown(msg["content"])
+            
+            if msg["role"] == "assistant" and "evidences" in msg and msg["evidences"]:
+                render_evidences(msg["evidences"], msg_key=f"hist_{msg_idx}")
     
-    # Renderizar query inmediatamente
-    with st.chat_message("user"):
-        st.image(uploaded_image, width=150)
-        st.markdown("🖼️ *Búsqueda por imagen subida*")
+    # ==========================================
+    # SELECTOR DE MODO DE BÚSQUEDA
+    # ==========================================
+    st.markdown("---")
+    input_mode = st.radio(
+        "Modo de búsqueda:", 
+        ["⌨️ Texto", "🎙️ Voz", "📸 Imagen"], 
+        horizontal=True,
+        label_visibility="collapsed"
+    )
 
-    with st.chat_message("assistant"):
-        with st.spinner("Analizando imagen..."):
-            evidences = retriever.retrieve_by_image(uploaded_image, top_k=3)
-        with st.spinner("Generando respuesta inteligente..."):
-            answer = generator.generate_response(
-                "El usuario subió una imagen de un producto. Describe los productos similares encontrados.",
-                evidences, query_type="imagen"
-            )
-            st.markdown(answer)
-            render_evidences(evidences)
-            
-            # Al final de la generación, se guarda en el historial. 
-            # El botón de análisis se mostrará en el siguiente re-render (para evitar bugs de re-ejecución inmediata en Streamlit).
-            st.session_state.messages.append({
-                "role": "assistant", 
-                "content": answer, 
-                "evidences": evidences, 
-                "id_unique": msg_id
-            })
-            st.rerun()
-
-# ==========================================
-# FLUJO: BÚSQUEDA POR TEXTO
-# ==========================================
-if prompt := st.chat_input("Ej: ¿Tienes alguna guitarra acústica ideal para principiantes?"):
-    msg_id = str(time.time())
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    # ==========================================
+    # FLUJOS CONDICIONALES DE BÚSQUEDA
+    # ==========================================
     
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    if input_mode == "📸 Imagen":
+        uploaded_file = st.file_uploader("Sube la foto del producto", type=["jpg", "jpeg", "png", "webp"])
+        if uploaded_file is not None:
+            uploaded_image = Image.open(uploaded_file).convert("RGB")
+            st.image(uploaded_image, width=150)
+            if st.button("🔎 Buscar productos similares", use_container_width=True):
+                msg_id = str(time.time())
+                st.session_state.messages.append({"role": "user", "content": "🖼️ *Búsqueda por imagen subida*", "user_image": uploaded_image})
+                
+                with st.chat_message("user"):
+                    st.image(uploaded_image, width=150)
+                    st.markdown("🖼️ *Búsqueda por imagen subida*")
 
-    with st.chat_message("assistant"):
-        with st.spinner("Buscando en la base de datos..."):
-            evidences = retriever.retrieve(prompt, top_k=3)
-        with st.spinner("Generando respuesta inteligente..."):
-            answer = generator.generate_response(prompt, evidences, query_type="texto")
-            st.markdown(answer)
-            render_evidences(evidences)
-            
-            st.session_state.messages.append({
-                "role": "assistant", 
-                "content": answer, 
-                "evidences": evidences, 
-                "id_unique": msg_id
-            })
-            st.rerun()
+                with st.chat_message("assistant"):
+                    with st.spinner("Analizando imagen..."):
+                        evidences = retriever.retrieve_by_image(uploaded_image, top_k=3)
+                        evidences = feedback_store.apply_feedback_to_results(evidences)
+                    with st.spinner("Generando respuesta inteligente..."):
+                        history = _RAGGen.format_chat_history(st.session_state.messages)
+                        answer = generator.generate_response(
+                            "El usuario subió una imagen de un producto. Describe los productos similares encontrados.",
+                            evidences, query_type="imagen", chat_history=history
+                        )
+                        st.markdown(answer)
+                        render_evidences(evidences, msg_key=f"img_{msg_id}")
+                        
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": answer, 
+                            "evidences": evidences, 
+                            "id_unique": msg_id
+                        })
+                        st.rerun()
 
-# ==========================================
-# FLUJO: BÚSQUEDA POR VOZ
-# ==========================================
-if audio_value is not None:
-    audio_bytes = audio_value.getvalue()
-    # Evitar re-procesar el mismo audio si Streamlit hace un rerun
-    if st.session_state.get("last_audio") != audio_bytes:
-        st.session_state["last_audio"] = audio_bytes
-        msg_id = str(time.time())
-        
-        # 1. Transcribir el audio
-        with st.spinner("Escuchando tu voz..."):
-            transcription = generator.transcribe_audio(audio_bytes)
-            
-        if transcription.startswith("[Error"):
-            st.error(transcription)
-        else:
-            # 2. Inyectar como prompt de texto
-            prompt = f'🎙️ "{transcription}"'
+    elif input_mode == "🎙️ Voz":
+        audio_value = st.audio_input("🎙️ Grabar nota de voz")
+        if audio_value is not None:
+            audio_bytes = audio_value.getvalue()
+            # Evitar re-ejecución infinita
+            if st.session_state.get("last_audio") != audio_bytes:
+                st.session_state["last_audio"] = audio_bytes
+                msg_id = str(time.time())
+                
+                with st.spinner("Escuchando tu voz..."):
+                    transcription = generator.transcribe_audio(audio_bytes)
+                    
+                if transcription.startswith("[Error"):
+                    st.error(transcription)
+                else:
+                    prompt_text = f'🎙️ "{transcription}"'
+                    st.session_state.messages.append({"role": "user", "content": prompt_text})
+                    
+                    with st.chat_message("user"):
+                        st.markdown(prompt_text)
+                        
+                    with st.chat_message("assistant"):
+                        with st.spinner("💡 Expandiendo consulta + Re-ranking..."):
+                            evidences = retriever.retrieve_with_expansion(
+                                transcription, top_k=3, candidate_k=15, n_expansions=3
+                            )
+                            evidences = feedback_store.apply_feedback_to_results(evidences)
+                        with st.spinner("Generando respuesta inteligente..."):
+                            history = _RAGGen.format_chat_history(st.session_state.messages)
+                            answer = generator.generate_response(transcription, evidences, query_type="texto", chat_history=history)
+                            st.markdown(answer)
+                            render_evidences(evidences, msg_key=f"voz_{msg_id}")
+                            
+                            st.session_state.messages.append({
+                                "role": "assistant", 
+                                "content": answer, 
+                                "evidences": evidences, 
+                                "id_unique": msg_id
+                            })
+                            st.rerun()
+
+    else: # input_mode == "⌨️ Texto"
+        if prompt := st.chat_input("¿ Tienes alguna guitarra acústica ideal para principiantes?"):
+            msg_id = str(time.time())
             st.session_state.messages.append({"role": "user", "content": prompt})
             
             with st.chat_message("user"):
                 st.markdown(prompt)
-                
+
             with st.chat_message("assistant"):
-                with st.spinner("Buscando en la base de datos..."):
-                    evidences = retriever.retrieve(transcription, top_k=3)
+                with st.spinner("💡 Expandiendo consulta con IA..."):
+                    # Pipeline de 3 etapas: Expansion + CLIP + Cross-Encoder
+                    evidences = retriever.retrieve_with_expansion(
+                        prompt, top_k=3, candidate_k=15, n_expansions=3
+                    )
+                    # Aplicar Relevance Feedback (ajustar scores según historial)
+                    evidences = feedback_store.apply_feedback_to_results(evidences)
                 with st.spinner("Generando respuesta inteligente..."):
-                    answer = generator.generate_response(transcription, evidences, query_type="texto")
+                    history = _RAGGen.format_chat_history(st.session_state.messages)
+                    answer = generator.generate_response(prompt, evidences, query_type="texto", chat_history=history)
                     st.markdown(answer)
-                    render_evidences(evidences)
+                    render_evidences(evidences, msg_key=f"new_{msg_id}")
                     
                     st.session_state.messages.append({
                         "role": "assistant", 
@@ -299,3 +346,42 @@ if audio_value is not None:
                         "id_unique": msg_id
                     })
                     st.rerun()
+
+with tab_analysis:
+    st.header("Análisis de Recuperación (Módulo unificado)")
+    st.write("Visualiza el desempeño global, la similitud de tu última consulta y las estadísticas de feedback de usuarios.")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📊 Similitud de la Última Consulta")
+        last_evidences = None
+        for msg in reversed(st.session_state.messages):
+            if msg["role"] == "assistant" and "evidences" in msg:
+                last_evidences = msg["evidences"]
+                break
+        
+        if last_evidences:
+            render_similarity_chart(last_evidences)
+        else:
+            st.info("Realiza una búsqueda en el chat para ver aquí la gráfica de similitud.")
+            
+    with col2:
+        st.subheader("📈 Rendimiento Global del Sistema")
+        render_global_dashboard()
+    
+    # Sección de Relevance Feedback
+    st.markdown("---")
+    st.subheader("🗳️ Relevance Feedback — Estadísticas")
+    stats = feedback_store.get_stats()
+    
+    if stats["total_interactions"] > 0:
+        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+        col_s1.metric("Documentos calificados", stats["total_documents_rated"])
+        col_s2.metric("👍 Total Likes", stats["total_likes"])
+        col_s3.metric("👎 Total Dislikes", stats["total_dislikes"])
+        col_s4.metric("Tasa de satisfacción", f"{stats['satisfaction_rate']:.0%}")
+        
+        st.write("Estos datos se utilizan automáticamente para ajustar los scores de búsquedas futuras (Rocchio simplificado).")
+    else:
+        st.info("Aún no hay feedback de usuarios. Usa los botones 👍/👎 en los productos recomendados para mejorar las búsquedas futuras.")

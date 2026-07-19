@@ -1,5 +1,6 @@
 """
 Módulo para la generación de respuestas usando un LLM (Retrieval-Augmented Generation).
+Incluye memoria conversacional para mantener contexto entre turnos.
 """
 import os
 import google.generativeai as genai
@@ -11,6 +12,8 @@ class RAGGenerator:
     """
     Clase que maneja la formulación del contexto y la generación de la respuesta
     conversacional usando un modelo de lenguaje.
+    Soporta memoria conversacional: inyecta el historial de turnos previos
+    en el prompt para que Gemini mantenga coherencia a lo largo del chat.
     """
     def __init__(self, model_name: str = "gemini-2.5-flash", temperature: float = 0.7):
         """
@@ -25,29 +28,34 @@ class RAGGenerator:
         if api_key:
             genai.configure(api_key=api_key)
         
-        # Definir el template del RAG (soporta consultas por texto e imagen)
-        prompt_template = """
-        Eres un asistente experto de compras. Utiliza la siguiente información de productos (contexto)
-        recuperada de nuestra base de datos para responder a la pregunta del usuario.
-        
-        Reglas:
-        1. Responde de forma amigable y conversacional.
-        2. Si recomiendas un producto del contexto, menciona su título y alguna característica relevante.
-        3. Si la respuesta no está en el contexto, indica amablemente que no encontraste información exacta, pero sugiere algo relacionado si es posible.
-        4. Si el tipo de consulta es "imagen", el usuario subió una foto para buscar productos similares. Describe los productos encontrados que se asemejan visualmente a lo que el usuario buscó.
-        
-        Tipo de Consulta: {query_type}
-        
-        Contexto Recuperado:
-        {context}
-        
-        Pregunta del Usuario: {question}
-        
-        Respuesta:
-        """
+        # Definir el template del RAG con soporte para memoria conversacional.
+        # La variable {chat_history} inyecta los últimos turnos del chat.
+        prompt_template = """Eres un asistente experto de compras con memoria conversacional.
+Utiliza la siguiente información de productos (contexto) recuperada de nuestra base de datos
+para responder a la pregunta del usuario.
+
+Reglas:
+1. Responde de forma amigable y conversacional.
+2. Si recomiendas un producto del contexto, menciona su título y alguna característica relevante.
+3. Si la respuesta no está en el contexto, indica amablemente que no encontraste información exacta, pero sugiere algo relacionado si es posible.
+4. Si el tipo de consulta es "imagen", el usuario subió una foto para buscar productos similares. Describe los productos encontrados que se asemejan visualmente a lo que el usuario buscó.
+5. MEMORIA: Tienes acceso al historial de conversación previo. Úsalo para entender referencias como "ese producto", "el primero", "algo más barato", "cuéntame más", etc. Mantén coherencia con lo que ya dijiste.
+
+Tipo de Consulta: {query_type}
+
+--- Historial de Conversación (últimos turnos) ---
+{chat_history}
+--- Fin del Historial ---
+
+Contexto Recuperado (productos de la base de datos):
+{context}
+
+Pregunta Actual del Usuario: {question}
+
+Respuesta:"""
         
         self.prompt = PromptTemplate(
-            input_variables=["context", "question", "query_type"],
+            input_variables=["context", "question", "query_type", "chat_history"],
             template=prompt_template
         )
         
@@ -68,14 +76,55 @@ class RAGGenerator:
             
         return "\n\n".join(context_parts)
 
-    def generate_response(self, query: str, retrieved_docs: List[Dict[str, Any]], query_type: str = "texto") -> str:
+    @staticmethod
+    def format_chat_history(messages: List[Dict[str, Any]], max_turns: int = 6) -> str:
         """
-        Genera la respuesta final usando el contexto recuperado.
+        Convierte el historial de mensajes de Streamlit en un texto resumido
+        para inyectarlo en el prompt del LLM.
+        
+        Solo incluye los últimos `max_turns` mensajes (pares usuario/asistente)
+        para no exceder la ventana de contexto ni degradar la calidad.
+        Omite las evidencias/metadatos; solo usa el texto de cada mensaje.
+
+        Args:
+            messages: Lista de dicts con 'role' y 'content' (st.session_state.messages).
+            max_turns: Número máximo de mensajes a incluir.
+
+        Returns:
+            String formateado con el historial conversacional.
+        """
+        if not messages:
+            return "(No hay historial previo. Esta es la primera interacción.)"
+
+        # Tomar solo los últimos N mensajes
+        recent = messages[-max_turns:]
+        
+        history_lines = []
+        for msg in recent:
+            role_label = "Usuario" if msg["role"] == "user" else "Asistente"
+            # Truncar mensajes muy largos del asistente para no llenar la ventana
+            content = msg["content"]
+            if msg["role"] == "assistant" and len(content) > 300:
+                content = content[:300] + "..."
+            history_lines.append(f"{role_label}: {content}")
+        
+        return "\n".join(history_lines)
+
+    def generate_response(
+        self,
+        query: str,
+        retrieved_docs: List[Dict[str, Any]],
+        query_type: str = "texto",
+        chat_history: str = ""
+    ) -> str:
+        """
+        Genera la respuesta final usando el contexto recuperado y la memoria conversacional.
         
         Args:
-            query: La consulta original del usuario (texto descriptivo o "Búsqueda por imagen").
+            query: La consulta original del usuario.
             retrieved_docs: Los resultados devueltos por MultimodalRetriever.
             query_type: "texto" si el usuario escribió, "imagen" si subió una foto.
+            chat_history: Historial de conversación formateado como texto.
             
         Returns:
             La respuesta generada por el LLM en formato de texto.
@@ -86,7 +135,8 @@ class RAGGenerator:
             response = self.chain.invoke({
                 "context": context_str, 
                 "question": query,
-                "query_type": query_type
+                "query_type": query_type,
+                "chat_history": chat_history if chat_history else "(Primera interacción)"
             })
             return response.content
         except Exception as e:
