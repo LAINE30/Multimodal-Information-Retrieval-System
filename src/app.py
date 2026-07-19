@@ -102,7 +102,7 @@ from src.generation import RAGGenerator as _RAGGen
 # ==========================================
 
 def render_similarity_chart(evidences):
-    st.write("Este gráfico muestra el **Nivel de Confianza (Distancia Coseno)** que tuvo el modelo de IA al recuperar cada producto en tu **última consulta**.")
+    st.write("Este gráfico muestra el **Nivel de Confianza (Score Final)** que tuvo el modelo de IA al recuperar cada producto.")
     if not evidences:
         st.warning("No hay evidencias para mostrar.")
         return
@@ -349,39 +349,88 @@ with tab_chat:
 
 with tab_analysis:
     st.header("Análisis de Recuperación (Módulo unificado)")
-    st.write("Visualiza el desempeño global, la similitud de tu última consulta y las estadísticas de feedback de usuarios.")
+    st.write("Visualiza el desempeño global y examina cómo operan los algoritmos extra en cada consulta.")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📊 Similitud de la Última Consulta")
-        last_evidences = None
-        for msg in reversed(st.session_state.messages):
-            if msg["role"] == "assistant" and "evidences" in msg:
-                last_evidences = msg["evidences"]
-                break
-        
-        if last_evidences:
-            render_similarity_chart(last_evidences)
-        else:
-            st.info("Realiza una búsqueda en el chat para ver aquí la gráfica de similitud.")
-            
-    with col2:
-        st.subheader("📈 Rendimiento Global del Sistema")
+    # 1. Rendimiento Global y Feedback Stats
+    col_dash, col_feed = st.columns(2)
+    with col_dash:
+        st.subheader("📈 Rendimiento Global (vs qrels)")
         render_global_dashboard()
     
-    # Sección de Relevance Feedback
+    with col_feed:
+        st.subheader("🗳️ Estadísticas de Relevance Feedback")
+        stats = feedback_store.get_stats()
+        if stats["total_interactions"] > 0:
+            st.metric("Documentos calificados", stats["total_documents_rated"])
+            col_f1, col_f2 = st.columns(2)
+            col_f1.metric("👍 Total Likes", stats["total_likes"])
+            col_f2.metric("👎 Total Dislikes", stats["total_dislikes"])
+            st.metric("Tasa de satisfacción", f"{stats['satisfaction_rate']:.0%}")
+            st.info("Estos datos ajustan automáticamente los scores usando el algoritmo Rocchio (α=0.3).")
+        else:
+            st.info("Aún no hay feedback de usuarios. Usa los botones 👍/👎 en los productos recomendados para mejorar el ranking futuro.")
+
     st.markdown("---")
-    st.subheader("🗳️ Relevance Feedback — Estadísticas")
-    stats = feedback_store.get_stats()
     
-    if stats["total_interactions"] > 0:
-        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-        col_s1.metric("Documentos calificados", stats["total_documents_rated"])
-        col_s2.metric("👍 Total Likes", stats["total_likes"])
-        col_s3.metric("👎 Total Dislikes", stats["total_dislikes"])
-        col_s4.metric("Tasa de satisfacción", f"{stats['satisfaction_rate']:.0%}")
+    # 2. Inspector por Consulta (Mostrando los 4 Extras)
+    st.subheader("🔍 Inspector de Búsquedas (Funcionalidades de Excelencia)")
+    
+    queries_with_results = []
+    for i in range(len(st.session_state.messages)-1):
+        if st.session_state.messages[i]["role"] == "user" and st.session_state.messages[i+1]["role"] == "assistant" and "evidences" in st.session_state.messages[i+1]:
+            queries_with_results.append({
+                "idx": i,
+                "user_content": st.session_state.messages[i].get("content", "Búsqueda por imagen"),
+                "evidences": st.session_state.messages[i+1]["evidences"]
+            })
+            
+    if queries_with_results:
+        query_options = {q["idx"]: f"Consulta {idx+1}: {q['user_content'][:50]}..." for idx, q in enumerate(queries_with_results)}
+        selected_idx = st.selectbox("Selecciona una consulta del historial para auditar:", options=list(query_options.keys()), format_func=lambda x: query_options[x])
         
-        st.write("Estos datos se utilizan automáticamente para ajustar los scores de búsquedas futuras (Rocchio simplificado).")
+        selected_query = next(q for q in queries_with_results if q["idx"] == selected_idx)
+        evs = selected_query["evidences"]
+        
+        st.markdown(f"**Consulta original:** `{selected_query['user_content']}`")
+        
+        c1, c2 = st.columns(2)
+        
+        with c1:
+            st.markdown("#### 1. Query Expansion (Gemini)")
+            expanded_froms = list(dict.fromkeys([ev.get("expanded_from", "") for ev in evs if ev.get("expanded_from")]))
+            if expanded_froms:
+                st.success("✅ **Activo:** Gemini generó reformulaciones automáticas.")
+                for q in expanded_froms:
+                    st.write(f"- `{q}`")
+            else:
+                st.info("No se aplicó expansión de consulta en esta búsqueda (p.ej. fue búsqueda por imagen).")
+                
+            st.markdown("#### 2. Re-ranking (Cross-Encoder)")
+            was_reranked = any(ev.get("reranked", False) for ev in evs)
+            if was_reranked:
+                st.success("✅ **Activo:** `ms-marco-MiniLM-L-6-v2` re-ordenó el top-20 inicial al top-3 final.")
+                data = [{"Producto": ev['text'][:30], "CLIP (Recall)": round(ev['score'], 4), "Cross-Encoder": round(ev.get('rerank_score', 0), 4)} for ev in evs]
+                st.dataframe(data, use_container_width=True)
+            else:
+                st.info("No se aplicó Re-ranking (solo ocurre en flujos de texto/voz).")
+
+        with c2:
+            st.markdown("#### 3. Relevance Feedback (Rocchio)")
+            has_boost = any(ev.get("feedback_boost", 1.0) != 1.0 for ev in evs)
+            if has_boost:
+                st.success("✅ **Activo:** Algunos productos sufrieron ajustes por votos previos.")
+                for ev in evs:
+                    boost = ev.get("feedback_boost", 1.0)
+                    if boost != 1.0:
+                        st.write(f"- **{ev['text'][:20]}...**: Multiplicador = `{boost:.2f}x`")
+            else:
+                st.info("Ninguno de los productos recuperados tenía historial de feedback (boost neutral = 1.0x).")
+                
+            st.markdown("#### 4. Memoria Conversacional")
+            st.success("✅ **Activo:** Se inyectaron los últimos turnos del chat en la variable `{chat_history}` del prompt de Gemini para resolver referencias cruzadas (Context-Aware).")
+            
+        st.markdown("#### 📊 Gráfica de Confianza Final")
+        render_similarity_chart(evs)
+                
     else:
-        st.info("Aún no hay feedback de usuarios. Usa los botones 👍/👎 en los productos recomendados para mejorar las búsquedas futuras.")
+        st.info("Realiza una búsqueda en el chat para inspeccionar cómo actúan los 4 algoritmos de excelencia (Query Expansion, Re-ranking, Feedback y Memoria).")
