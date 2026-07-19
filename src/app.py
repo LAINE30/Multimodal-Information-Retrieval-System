@@ -17,6 +17,16 @@ from PIL import Image
 # Cargar variables de entorno (como GOOGLE_API_KEY)
 load_dotenv()
 
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+# Si no existe en .env, buscar en Streamlit Secrets
+if not GOOGLE_API_KEY:
+    GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY")
+
+if not GOOGLE_API_KEY:
+    st.error("No se encontró GOOGLE_API_KEY.")
+    st.stop()
+
 # Configuración de página
 st.set_page_config(page_title="RAG Multimodal", page_icon="🛍️", layout="wide")
 
@@ -71,10 +81,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
-if "GOOGLE_API_KEY" not in os.environ or not os.environ["GOOGLE_API_KEY"]:
-    st.error("⚠️ No se encontró la variable GOOGLE_API_KEY. Por favor, añádela a tu archivo .env.")
-    st.stop()
 
 @st.cache_resource
 def load_pipeline():
