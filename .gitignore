@@ -12,3 +12,6 @@ data/embeddings/*
 .DS_Store
 .env.example
 .agents
+06webcrawling.ipynb
+explicacion_webcrawling.md
+guion_video_webcrawling.md
