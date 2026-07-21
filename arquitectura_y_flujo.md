@@ -368,39 +368,6 @@ Pregunta del Usuario: {question}
 **Archivo de Qrels (`data/evaluation/qrels.json`):**
 Contiene 20 consultas manualmente anotadas que cubren las categorías del corpus: Musical Instruments, Pet Supplies y Video Games. Cada query especifica los IDs de los documentos que se consideran relevantes (ground truth).
 
-
-## Funcionalidades de Excelencia
-
-Este proyecto implementa cuatro funcionalidades avanzadas ("de excelencia") que otorgan un total de 60 puntos adicionales, mejorando significativamente la calidad de la recuperación y la experiencia del usuario mediante técnicas de IA en estado del arte.
-
-### 1. Re-ranking (+15)
-Se implementó un modelo de re-ranking (Cross-Encoder `ms-marco-MiniLM-L-6-v2`) que refina el ranking inicial obtenido mediante la búsqueda vectorial pura antes de generar la respuesta del sistema RAG.
-- **Diferencia Bi-Encoder vs Cross-Encoder:** El modelo base (CLIP) es un *Bi-Encoder*. Calcula embeddings por separado para el texto y la imagen, lo que es rapidísimo (permite indexar miles de productos) pero sacrifica precisión porque no procesa la interacción semántica cruzada. El modelo de Re-ranking es un *Cross-Encoder*, el cual procesa la consulta del usuario y el texto del documento **simultáneamente** a través de capas de auto-atención (self-attention). Esto es computacionalmente costoso, por lo que solo se aplica a un subconjunto pequeño.
-- **Flujo en el Pipeline (`MultimodalRetriever`):** 
-  1. Durante una búsqueda de texto, CLIP primero recupera un conjunto grande de candidatos (ej. `candidate_k=15`). Esto maximiza el *Recall* (evita que el producto correcto se escape).
-  2. El Cross-Encoder toma la consulta y cada uno de los 15 candidatos. 
-  3. Ejecuta su método `predict()` para asignar un nuevo puntaje de relevancia semántica profunda (Re-rank Score).
-  4. La lista se ordena descendentemente basada en este nuevo puntaje, y se realiza un *slicing* para retornar solo el `top_k=6` a la etapa de generación. Esto dispara dramáticamente la métrica *Precision@k*.
-
-### 2. Query Expansion (+15)
-Se implementó un mecanismo automático de expansión (Multi-query Retrieval) para resolver el problema del "vocabulario cerrado" o desajuste de términos entre lo que dice el usuario y lo que dicen las descripciones de los productos (ej. jerga técnica vs lenguaje coloquial).
-- **Implementación (`query_expansion.py`):** Antes de interactuar con la base de datos, la consulta cruda pasa por un `QueryExpander`. Este módulo invoca al LLM (Gemini 2.5 Flash) usando técnicas de *Prompt Engineering*. El LLM asume el rol de un experto en comercio electrónico y recibe instrucciones estrictas para retornar `n_expansions=3` frases equivalentes (sinónimos o variantes de búsqueda) formateadas obligatoriamente como un arreglo JSON.
-- **Flujo Vectorial Paralelo:** Tanto la consulta original como sus 3 expansiones son convertidas en embeddings a través de CLIP. El sistema consulta a ChromaDB utilizando todos estos vectores. Finalmente, los conjuntos de resultados se fusionan (pooling) y se deduplican utilizando los IDs únicos de los productos. Esto genera una piscina de candidatos (candidate pool) mucho más rica antes del Re-ranking.
-
-### 3. Relevance Feedback (+15)
-El sistema permite que el usuario califique las respuestas en la interfaz gráfica (botones 👍/👎), y utiliza este feedback para alterar dinámicamente los pesos matemáticos en búsquedas posteriores.
-- **Algoritmo (Variante de Rocchio):** A diferencia de Rocchio puro (que mueve el vector de la consulta en el espacio latente sumando/restando vectores de documentos), esta implementación actúa directamente sobre el puntaje final del documento por motivos de eficiencia en bases de datos pre-indexadas.
-- **Mecanismo de Persistencia:** Los votos (likes y dislikes por ID de producto) se almacenan en disco (`data/evaluation/relevance_feedback.json`) a través de la clase `RelevanceFeedbackStore`, asegurando que la memoria del sistema persista entre reinicios.
-- **Matemáticas del Boost:** Al recuperar los documentos en una nueva consulta, el sistema revisa el JSON de votos. Para cada producto evaluado, calcula: `Boost = 1.0 + \alpha * ((likes - dislikes) / (total_votos + 1))`. (Con `\alpha = 0.3`).
-- El puntaje del Cross-Encoder o CLIP se multiplica por este `Boost`. Los productos con historial positivo reciben un aumento (empujándolos al Top-1), mientras que el ruido irrelevante recibe un castigo algorítmico, descendiendo en el ranking final.
-
-### 4. Memoria Conversacional (+15)
-Se implementó una memoria de corto plazo que permite al sistema RAG inyectar el contexto de interacciones pasadas para resolver referencias cruzadas (co-reference resolution), permitiendo un flujo de diálogo humano.
-- **Gestión de Estado (State Management):** La interfaz web (Streamlit) actúa como gestor del estado de la sesión, almacenando las parejas de pregunta-respuesta (User-Assistant) en `st.session_state.messages`.
-- **Inyección RAG (`generation.py`):** Cuando se activa el flujo RAG, la función estática `format_chat_history()` extrae y empaqueta los últimos $N$ turnos de la conversación en un gran string de transcripción (ej. `Usuario: X \n IA: Y`).
-- **Resolución de Ambigüedades:** Esta transcripción se inyecta dinámicamente en el bloque `{chat_history}` de la plantilla de LangChain (`PromptTemplate`). Cuando el usuario hace una pregunta ambigua como *"¿Y tienes ese en color negro?"*, el LLM puede leer el historial inyectado, entender que *"ese"* se refiere al modelo exacto discutido en el turno anterior, y formular la respuesta o extracción correcta.
-
-
 ---
 
 ## Tecnologías y Versiones
@@ -419,3 +386,34 @@ Se implementó una memoria de corto plazo que permite al sistema RAG inyectar el
 | NumPy | Cálculos numéricos y métricas de evaluación | latest |
 
 ---
+
+## Funcionalidades de Excelencia
+
+Este proyecto implementa cuatro funcionalidades avanzadas ("de excelencia") que otorgan un total de 60 puntos adicionales, mejorando significativamente la calidad de la recuperación y la experiencia del usuario mediante técnicas de IA en estado del arte.
+
+### 1. Re-ranking (+15)
+Se implementó un modelo de re-ranking (Cross-Encoder `ms-marco-MiniLM-L-6-v2`) que refina el ranking inicial obtenido mediante la búsqueda vectorial pura antes de generar la respuesta del sistema RAG.
+- **Diferencia Bi-Encoder vs Cross-Encoder:** El modelo base (CLIP) es un *Bi-Encoder*. Calcula embeddings por separado para el texto y la imagen, lo que es rapidísimo (permite indexar miles de productos) pero sacrifica precisión porque no procesa la interacción semántica cruzada. El modelo de Re-ranking es un *Cross-Encoder*, el cual procesa la consulta del usuario y el texto del documento **simultáneamente** a través de capas de auto-atención (self-attention). Esto es computacionalmente costoso, por lo que solo se aplica a un subconjunto pequeño.
+- **Flujo en el Pipeline (`MultimodalRetriever`):** 
+  1. Durante una búsqueda de texto, CLIP primero recupera un conjunto grande de candidatos (ej. `candidate_k=15`). Esto maximiza el *Recall* (evita que el producto correcto se escape).
+  2. El Cross-Encoder toma la consulta y cada uno de los 15 candidatos. 
+  3. Ejecuta su método `predict()` para asignar un nuevo puntaje de relevancia semántica profunda (Re-rank Score).
+  4. La lista se ordena descendentemente basada en este nuevo puntaje, y se realiza un *slicing* para retornar solo el `top_k=6` a la etapa de generación. Esto dispara dramáticamente la métrica *Precision@k*.
+
+### 2. Query Expansion (+15)
+Se implementó un mecanismo automático de expansión (Multi-query Retrieval) para resolver el problema del "vocabulario cerrado" o desajuste de términos entre lo que dice el usuario y lo que dicen las descripciones de los productos (ej. jerga técnica vs lenguaje coloquial).
+- **Implementación (`query_expansion.py`):** Antes de interactuar con la base de datos, la consulta cruda pasa por un `QueryExpander`. Este módulo invoca al LLM (Gemini 1.5 Flash) usando técnicas de *Prompt Engineering*. El LLM asume el rol de un experto en comercio electrónico y recibe instrucciones estrictas para retornar `n_expansions=3` frases equivalentes (sinónimos o variantes de búsqueda) formateadas obligatoriamente como un arreglo JSON.
+- **Flujo Vectorial Paralelo:** Tanto la consulta original como sus 3 expansiones son convertidas en embeddings a través de CLIP. El sistema consulta a ChromaDB utilizando todos estos vectores. Finalmente, los conjuntos de resultados se fusionan (pooling) y se deduplican utilizando los IDs únicos de los productos. Esto genera una piscina de candidatos (candidate pool) mucho más rica antes del Re-ranking.
+
+### 3. Relevance Feedback (+15)
+El sistema permite que el usuario califique las respuestas en la interfaz gráfica (botones 👍/👎), y utiliza este feedback para alterar dinámicamente los pesos matemáticos en búsquedas posteriores.
+- **Algoritmo (Variante de Rocchio):** A diferencia de Rocchio puro (que mueve el vector de la consulta en el espacio latente sumando/restando vectores de documentos), esta implementación actúa directamente sobre el puntaje final del documento por motivos de eficiencia en bases de datos pre-indexadas.
+- **Mecanismo de Persistencia:** Los votos (likes y dislikes por ID de producto) se almacenan en disco (`data/evaluation/relevance_feedback.json`) a través de la clase `RelevanceFeedbackStore`, asegurando que la memoria del sistema persista entre reinicios.
+- **Matemáticas del Boost:** Al recuperar los documentos en una nueva consulta, el sistema revisa el JSON de votos. Para cada producto evaluado, calcula: `Boost = 1.0 + \alpha * ((likes - dislikes) / (total_votos + 1))`. (Con `\alpha = 0.3`).
+- El puntaje del Cross-Encoder o CLIP se multiplica por este `Boost`. Los productos con historial positivo reciben un aumento (empujándolos al Top-1), mientras que el ruido irrelevante recibe un castigo algorítmico, descendiendo en el ranking final.
+
+### 4. Memoria Conversacional (+15)
+Se implementó una memoria de corto plazo que permite al sistema RAG inyectar el contexto de interacciones pasadas para resolver referencias cruzadas (co-reference resolution), permitiendo un flujo de diálogo humano.
+- **Gestión de Estado (State Management):** La interfaz web (Streamlit) actúa como gestor del estado de la sesión, almacenando las parejas de pregunta-respuesta (User-Assistant) en `st.session_state.messages`.
+- **Inyección RAG (`generation.py`):** Cuando se activa el flujo RAG, la función estática `format_chat_history()` extrae y empaqueta los últimos $N$ turnos de la conversación en un gran string de transcripción (ej. `Usuario: X \n IA: Y`).
+- **Resolución de Ambigüedades:** Esta transcripción se inyecta dinámicamente en el bloque `{chat_history}` de la plantilla de LangChain (`PromptTemplate`). Cuando el usuario hace una pregunta ambigua como *"¿Y tienes ese en color negro?"*, el LLM puede leer el historial inyectado, entender que *"ese"* se refiere al modelo exacto discutido en el turno anterior, y formular la respuesta o extracción correcta.

@@ -26,23 +26,25 @@ class QueryExpander:
     """
 
     EXPANSION_PROMPT = """Eres un asistente experto en búsqueda de productos de e-commerce.
-Tu tarea es generar {n} reformulaciones alternativas de la siguiente consulta de búsqueda.
+Tu tarea es traducir (si es necesario) y generar {n} reformulaciones alternativas en INGLÉS de la siguiente consulta de búsqueda.
+El motor de búsqueda subyacente (CLIP) funciona mucho mejor en inglés, por lo que tus salidas deben estar obligatoriamente en inglés.
 
 Consulta original: "{query}"
 
 Reglas:
-1. Cada reformulación debe capturar la misma intención, pero con palabras distintas.
-2. Varía el vocabulario: usa sinónimos, términos técnicos, coloquiales o en otro idioma si es relevante.
-3. Mantén las reformulaciones cortas (máximo 15 palabras cada una).
-4. Devuelve ÚNICAMENTE un JSON válido con la siguiente estructura, sin texto adicional:
-{{"expansions": ["reformulación 1", "reformulación 2", "reformulación 3"]}}
+1. TRADUCCIÓN OBLIGATORIA: Todas las reformulaciones generadas deben estar escritas en INGLÉS, independientemente del idioma de la consulta original.
+2. La primera reformulación debe ser la traducción más directa y exacta de la consulta original.
+3. Las demás reformulaciones deben usar sinónimos, variaciones o términos técnicos (también en inglés).
+4. Mantén las reformulaciones cortas (máximo 15 palabras cada una).
+5. Devuelve ÚNICAMENTE un JSON válido con la siguiente estructura, sin texto adicional:
+{{"expansions": ["direct translation", "alternative 1", "alternative 2"]}}
 """
 
     def __init__(self):
         api_key = os.environ.get("GOOGLE_API_KEY")
         if api_key:
             genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel("gemini-2.5-flash")
+        self._model = genai.GenerativeModel("gemini-1.5-flash")
 
     def expand(self, query: str, n: int = 3) -> List[str]:
         """

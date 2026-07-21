@@ -15,7 +15,7 @@ class RAGGenerator:
     Soporta memoria conversacional: inyecta el historial de turnos previos
     en el prompt para que Gemini mantenga coherencia a lo largo del chat.
     """
-    def __init__(self, model_name: str = "gemini-2.5-flash", temperature: float = 0.7):
+    def __init__(self, model_name: str = "gemini-1.5-flash", temperature: float = 0.7):
         """
         Inicializa el modelo de lenguaje de LangChain (Gemini).
         Nota: Requiere que la variable de entorno GOOGLE_API_KEY esté configurada.
