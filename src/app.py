@@ -182,40 +182,55 @@ def render_evidences(evidences, msg_key=""):
         else:
             st.markdown("✨ **Re-ranking activo:** Resultados refinados por Cross-Encoder.")
 
-    st.markdown("##### 🛒 Productos Recomendados")
-    cols = st.columns(len(evidences))
-    for idx, ev in enumerate(evidences):
+    def render_single_evidence(ev, idx):
+        if os.path.exists(ev["local_image_path"]):
+            st.image(ev["local_image_path"], use_container_width=True)
+        st.markdown(f"**{ev['category']}**")
+        # Mostrar score del re-ranker si existe, si no el score de CLIP
+        score_text = ""
+        if ev.get("reranked") and "rerank_score" in ev:
+            score_text = f"✨ Re-rank: {ev['rerank_score']:.2f} | CLIP: {ev['score']:.4f}"
+        else:
+            score_text = f"Confianza: {ev['score']:.4f}"
+        
+        # Mostrar boost de feedback si existe y no es neutro
+        boost = ev.get("feedback_boost", 1.0)
+        if boost != 1.0:
+            score_text += f" | Boost: {boost:.2f}"
+        st.caption(score_text)
+        
+        with st.expander("Ver detalles"):
+            st.write(ev["text"])
+        
+        # Botones de feedback (👍 / 👎)
+        fb_key = f"fb_{msg_key}_{ev['id']}_{idx}"
+        col_like, col_dislike = st.columns(2)
+        with col_like:
+            if st.button("👍", key=f"like_{fb_key}", use_container_width=True):
+                feedback_store.add_feedback(ev["id"], is_relevant=True)
+                st.toast(f"✅ ¡Feedback registrado para mejorar búsquedas futuras!")
+        with col_dislike:
+            if st.button("👎", key=f"dislike_{fb_key}", use_container_width=True):
+                feedback_store.add_feedback(ev["id"], is_relevant=False)
+                st.toast(f"📝 ¡Feedback registrado! Este producto será penalizado en futuras búsquedas.")
+
+    st.markdown("##### 🛒 Top 3 Productos Recomendados")
+    top_n = min(3, len(evidences))
+    cols = st.columns(top_n)
+    for idx in range(top_n):
         with cols[idx]:
-            if os.path.exists(ev["local_image_path"]):
-                st.image(ev["local_image_path"], use_container_width=True)
-            st.markdown(f"**{ev['category']}**")
-            # Mostrar score del re-ranker si existe, si no el score de CLIP
-            score_text = ""
-            if ev.get("reranked") and "rerank_score" in ev:
-                score_text = f"✨ Re-rank: {ev['rerank_score']:.2f} | CLIP: {ev['score']:.4f}"
-            else:
-                score_text = f"Confianza: {ev['score']:.4f}"
+            render_single_evidence(evidences[idx], idx)
             
-            # Mostrar boost de feedback si existe y no es neutro
-            boost = ev.get("feedback_boost", 1.0)
-            if boost != 1.0:
-                score_text += f" | Boost: {boost:.2f}"
-            st.caption(score_text)
-            
-            with st.expander("Ver detalles"):
-                st.write(ev["text"])
-            
-            # Botones de feedback (👍 / 👎)
-            fb_key = f"fb_{msg_key}_{ev['id']}_{idx}"
-            col_like, col_dislike = st.columns(2)
-            with col_like:
-                if st.button("👍", key=f"like_{fb_key}", use_container_width=True):
-                    feedback_store.add_feedback(ev["id"], is_relevant=True)
-                    st.toast(f"✅ ¡Feedback registrado para mejorar búsquedas futuras!")
-            with col_dislike:
-                if st.button("👎", key=f"dislike_{fb_key}", use_container_width=True):
-                    feedback_store.add_feedback(ev["id"], is_relevant=False)
-                    st.toast(f"📝 ¡Feedback registrado! Este producto será penalizado en futuras búsquedas.")
+    if len(evidences) > 3:
+        with st.expander("📦 Ver más resultados recomendados"):
+            rest_evidences = evidences[3:]
+            for row_start in range(0, len(rest_evidences), 3):
+                row_evs = rest_evidences[row_start:row_start+3]
+                cols_rest = st.columns(len(row_evs))
+                for c_idx, ev in enumerate(row_evs):
+                    idx = 3 + row_start + c_idx
+                    with cols_rest[c_idx]:
+                        render_single_evidence(ev, idx)
 
 # Crear los módulos principales (Tabs)
 tab_chat, tab_analysis = st.tabs(["💬 Chat Multimodal", "📈 Módulo de Análisis de Recuperación"])
@@ -263,7 +278,7 @@ with tab_chat:
 
                 with st.chat_message("assistant"):
                     with st.spinner("Analizando imagen..."):
-                        evidences = retriever.retrieve_by_image(uploaded_image, top_k=3)
+                        evidences = retriever.retrieve_by_image(uploaded_image, top_k=6)
                         evidences = feedback_store.apply_feedback_to_results(evidences)
                     with st.spinner("Generando respuesta inteligente..."):
                         history = _RAGGen.format_chat_history(st.session_state.messages)
@@ -306,7 +321,7 @@ with tab_chat:
                     with st.chat_message("assistant"):
                         with st.spinner("💡 Expandiendo consulta + Re-ranking..."):
                             evidences = retriever.retrieve_with_expansion(
-                                transcription, top_k=3, candidate_k=15, n_expansions=3
+                                transcription, top_k=6, candidate_k=15, n_expansions=3
                             )
                             evidences = feedback_store.apply_feedback_to_results(evidences)
                         with st.spinner("Generando respuesta inteligente..."):
@@ -335,7 +350,7 @@ with tab_chat:
                 with st.spinner("💡 Expandiendo consulta con IA..."):
                     # Pipeline de 3 etapas: Expansion + CLIP + Cross-Encoder
                     evidences = retriever.retrieve_with_expansion(
-                        prompt, top_k=3, candidate_k=15, n_expansions=3
+                        prompt, top_k=6, candidate_k=15, n_expansions=3
                     )
                     # Aplicar Relevance Feedback (ajustar scores según historial)
                     evidences = feedback_store.apply_feedback_to_results(evidences)
