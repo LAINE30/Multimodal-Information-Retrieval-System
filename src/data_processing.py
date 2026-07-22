@@ -21,9 +21,19 @@ CATEGORIES = [
     "raw_meta_Toys_and_Games",
     "raw_meta_Home_and_Kitchen",
     "raw_meta_Cell_Phones_and_Accessories",
-    "raw_meta_Office_Products"
+    "raw_meta_Office_Products",
+    "raw_meta_Automotive",
+    "raw_meta_Baby_Products",
+    "raw_meta_Beauty_and_Personal_Care",
+    "raw_meta_Clothing_Shoes_and_Jewelry",
+    "raw_meta_Grocery_and_Gourmet_Food",
+    "raw_meta_Health_and_Household",
+    "raw_meta_Industrial_and_Scientific",
+    "raw_meta_Patio_Lawn_and_Garden",
+    "raw_meta_Tools_and_Home_Improvement",
+    "raw_meta_Software"
 ]
-LIMIT_PER_CATEGORY = 50  # Puedes subir esto a 500, 1000 o más dependiendo de tu tiempo y espacio
+LIMIT_PER_CATEGORY = 75  # Puedes subir esto a 500, 1000 o más dependiendo de tu tiempo y espacio
 OUTPUT_CORPUS = "data/processed/corpus.json"
 IMAGES_DIR = "data/raw/images"
 
