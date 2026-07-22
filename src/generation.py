@@ -154,7 +154,7 @@ Respuesta:"""
             El texto transcrito por la IA.
         """
         try:
-            model = genai.GenerativeModel("gemini-2.5-flash")
+            model = genai.GenerativeModel(GEMINI_MODEL_NAME)
             response = model.generate_content([
                 {"mime_type": "audio/wav", "data": audio_bytes},
                 "Transcribe exactamente las palabras de este audio en su idioma original. No agregues comillas, saludos ni contexto. Solo el texto dicho."

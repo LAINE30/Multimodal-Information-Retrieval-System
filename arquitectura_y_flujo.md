@@ -264,7 +264,7 @@ Pregunta del Usuario: {question}
 3. Verifica que GOOGLE_API_KEY exista → si no, st.error() y st.stop()
 4. load_pipeline() [cacheada con @st.cache_resource]:
    a. Instancia MultimodalRetriever() → carga CLIP + ChromaDB
-   b. Instancia RAGGenerator("gemini-2.5-flash") → conecta a la API de Google
+   b. Instancia RAGGenerator(GEMINI_MODEL_NAME) → conecta a la API de Google
 5. Crea el sidebar con:
    a. st.file_uploader para imágenes
    b. Checkbox "Ver Dashboard de Evaluación Global" → Lee evaluation_results.json y dibuja métricas con st.line_chart()
