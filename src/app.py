@@ -159,8 +159,36 @@ st.title("🤖 Asistente Multimodal de Compras")
 
 st.markdown("""
 👋 **¡Bienvenido a tu Asistente de Compras Inteligente!**  
-Esta aplicación te ayuda a encontrar el producto perfecto en nuestro catálogo utilizando Inteligencia Artificial.  
+Esta aplicación te ayuda a encontrar el producto perfecto utilizando Inteligencia Artificial. Contamos con **más de 2,100 productos**.
 
+**Categorías principales:** 🎸 Instrumentos, 🎮 Videojuegos, 🐶 Mascotas, 📷 Cámaras, 💻 Electrónica, 🏕️ Deportes...
+""")
+
+with st.expander("👀 Ver todas las 20 categorías"):
+    st.markdown("""
+    * 🎸 Instrumentos Musicales
+    * 🎮 Videojuegos
+    * 🐶 Mascotas
+    * 📷 Cámaras y Fotografía
+    * 💻 Electrónica
+    * 🏕️ Deportes y Exteriores
+    * 🧸 Juguetes y Juegos
+    * 🍳 Hogar y Cocina
+    * 📱 Celulares y Accesorios
+    * 📎 Productos de Oficina
+    * 🚗 Automóviles
+    * 👶 Productos para Bebés
+    * 💄 Belleza y Cuidado Personal
+    * 👗 Ropa, Zapatos y Joyería
+    * 🍫 Comida Gourmet y Abarrotes
+    * 💊 Salud y Hogar
+    * 🔬 Industria y Ciencia
+    * 🪴 Patio, Césped y Jardín
+    * 🔨 Herramientas y Mejoras del Hogar
+    * 💿 Software
+    """)
+
+st.markdown("""
 **¿Qué puedes hacer?**
 * 💬 **Preguntar con texto:** Escribe lo que buscas de forma natural (ej. *"busco una mochila resistente para acampar"*).
 * 🎙️ **Buscar por voz:** Haz clic en el ícono del micrófono dentro del chat para hablarle directamente al asistente.
