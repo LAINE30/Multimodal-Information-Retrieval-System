@@ -183,11 +183,15 @@ def render_evidences(evidences, msg_key=""):
             st.markdown("✨ **Re-ranking activo:** Resultados refinados por Cross-Encoder.")
 
     def render_single_evidence(ev, idx):
-        # Reemplazamos \ por / (para arreglar el error en Linux) y luego normpath ajusta a la ruta nativa del OS actual
         normalized_path = ev["local_image_path"].replace("\\", "/")
         img_path = os.path.normpath(normalized_path)
+        
+        # Primero intentamos cargar la imagen local. Si no existe (ej. en la nube), 
+        # usamos directamente el enlace web original del producto.
         if os.path.exists(img_path):
             st.image(img_path, use_container_width=True)
+        elif "image_url" in ev and ev["image_url"]:
+            st.image(ev["image_url"], use_container_width=True)
         st.markdown(f"**{ev['category']}**")
         # Mostrar score del re-ranker si existe, si no el score de CLIP
         score_text = ""
