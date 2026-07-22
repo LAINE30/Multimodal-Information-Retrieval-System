@@ -4,13 +4,15 @@ Este proyecto implementa un sistema de Recuperación de Información Multimodal 
 
 ## Características Principales
 
-*   **Corpus Multimodal Ampliado**: Emplea un subconjunto del **Amazon Reviews 2023 Dataset**, que incluye 700 productos distribuidos en 10 categorías (Electrónica, Videojuegos, Instrumentos, Juguetes, Celulares, Hogar, etc.) junto con sus metadatos e imágenes.
+*   **Corpus Multimodal Ampliado**: Emplea un subconjunto del **Amazon Reviews 2023 Dataset**, que incluye más de 2,100 productos distribuidos en 20 categorías (Electrónica, Videojuegos, Instrumentos, Juguetes, Celulares, Hogar, Software, etc.) junto con sus metadatos e imágenes.
 *   **Embeddings Multimodales**: Utiliza modelos basados en CLIP para representar tanto el texto como las imágenes en un mismo espacio vectorial.
 *   **Base de Datos Vectorial**: Almacena e indexa los embeddings utilizando **ChromaDB** para una recuperación eficiente (búsqueda Top-k).
-*   **Pipeline RAG**: Implementa un flujo completo: recibe la consulta, recupera documentos relevantes, construye el contexto y genera una respuesta utilizando **Gemini (Google GenAI)**.
+*   **Pipeline RAG Avanzado**: Implementa un flujo completo: recibe la consulta, recupera documentos, aplica **Re-ranking (Cross-Encoder)**, construye el contexto y genera una respuesta utilizando **Gemini 2.5 Flash**.
+*   **Query Expansion**: Utiliza técnicas Multi-Query para generar sinónimos y variaciones semánticas de la consulta del usuario, mejorando el *Recall*.
+*   **Relevance Feedback**: Sistema interactivo tipo Rocchio que aprende de los votos (👍/👎) del usuario para priorizar o castigar productos en el ranking dinámicamente.
 *   **Búsqueda Visual Bidireccional**: Permite subir fotografías para encontrar productos visualmente similares usando los embeddings de CLIP.
 *   **Búsqueda por Voz (STT)**: Permite grabar audio desde el navegador y convertirlo a texto usando las capacidades nativas multimodales de la API de Gemini.
-*   **Interfaz Conversacional Avanzada**: Interfaz web construida con Streamlit (estilo App Gallery). Permite realizar consultas por texto, voz o imagen, visualizar respuestas, examinar gráficamente los niveles de similitud y ver el dashboard de evaluación del sistema.
+*   **Memoria Conversacional**: El Asistente IA recuerda los últimos turnos del chat para resolver ambigüedades en la conversación.
 *   **Evaluación del Sistema**: Módulo de evaluación experimental con métricas estándar de Recuperación de Información: Precision@k, Recall@k y NDCG@k.
 
 ## Requisitos Previos
@@ -38,14 +40,17 @@ Este proyecto implementa un sistema de Recuperación de Información Multimodal 
     ```text
     GOOGLE_API_KEY="tu_clave_aqui"
     ```
-5.  Generar el Corpus y la Base de Datos Vectorial (Solo la primera vez):
-    Dado que los archivos grandes e imágenes están en el `.gitignore`, debes descargar la data y generar los vectores de CLIP localmente:
+5.  Ejecutar el sistema localmente o desplegar (¡Base de datos lista!):
+    La base de datos vectorial pre-calculada (`data/chroma_db`) ya se encuentra incluida en este repositorio para que el sistema funcione de inmediato sin necesidad de descargas pesadas.
+    
+    *Opcional:* Si deseas descargar las imágenes de alta calidad localmente y re-generar el corpus desde cero, ejecuta:
     ```bash
-    # Descarga imágenes y metadata (~5 min)
+    # Descarga imágenes y metadata (~15 min)
     python src/data_processing.py
     
-    # Genera embeddings e indexa en ChromaDB (~2 min, descargará el modelo ViT-B-32)
-    python -m src.index_corpus
+    # Genera embeddings e indexa en ChromaDB (~3 min)
+    $env:PYTHONPATH="."  # En Windows PowerShell
+    python src/index_corpus.py
     ```
 
 ## Estructura del Proyecto
