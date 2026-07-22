@@ -183,8 +183,9 @@ def render_evidences(evidences, msg_key=""):
             st.markdown("✨ **Re-ranking activo:** Resultados refinados por Cross-Encoder.")
 
     def render_single_evidence(ev, idx):
-        # Asegurar que las rutas de Windows (\) funcionen en Linux (/) en Cloud Run
-        img_path = ev["local_image_path"].replace("\\", "/")
+        # Reemplazamos \ por / (para arreglar el error en Linux) y luego normpath ajusta a la ruta nativa del OS actual
+        normalized_path = ev["local_image_path"].replace("\\", "/")
+        img_path = os.path.normpath(normalized_path)
         if os.path.exists(img_path):
             st.image(img_path, use_container_width=True)
         st.markdown(f"**{ev['category']}**")
