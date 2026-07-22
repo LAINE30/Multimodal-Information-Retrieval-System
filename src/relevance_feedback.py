@@ -113,9 +113,15 @@ class RelevanceFeedbackStore:
             doc["feedback_boost"] = boost
 
             if "rerank_score" in doc:
-                doc["rerank_score"] = doc["rerank_score"] * boost
+                if doc["rerank_score"] < 0:
+                    doc["rerank_score"] = doc["rerank_score"] / boost
+                else:
+                    doc["rerank_score"] = doc["rerank_score"] * boost
             else:
-                doc["score"] = doc["score"] * boost
+                if doc["score"] < 0:
+                    doc["score"] = doc["score"] / boost
+                else:
+                    doc["score"] = doc["score"] * boost
 
         # Re-ordenar por score ajustado
         sort_key = "rerank_score" if results and "rerank_score" in results[0] else "score"
