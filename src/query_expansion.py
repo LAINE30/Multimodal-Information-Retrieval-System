@@ -10,6 +10,7 @@ import os
 import json
 import google.generativeai as genai
 from typing import List
+from src.config import GEMINI_MODEL_NAME
 
 
 class QueryExpander:
@@ -44,7 +45,7 @@ Reglas:
         api_key = os.environ.get("GOOGLE_API_KEY")
         if api_key:
             genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel("gemini-2.5-flash")
+        self._model = genai.GenerativeModel(GEMINI_MODEL_NAME)
 
     def expand(self, query: str, n: int = 3) -> List[str]:
         """
