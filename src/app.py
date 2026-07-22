@@ -157,6 +157,18 @@ def render_global_dashboard():
 
 st.title("🤖 Asistente Multimodal de Compras")
 
+st.markdown("""
+👋 **¡Bienvenido a tu Asistente de Compras Inteligente!**  
+Esta aplicación te ayuda a encontrar el producto perfecto en nuestro catálogo utilizando Inteligencia Artificial.  
+
+**¿Qué puedes hacer?**
+* 💬 **Preguntar con texto:** Escribe lo que buscas de forma natural (ej. *"busco una mochila resistente para acampar"*).
+* 🎙️ **Buscar por voz:** Haz clic en el ícono del micrófono dentro del chat para hablarle directamente al asistente.
+* 📷 **Buscar por imagen:** Sube una foto en el menú lateral izquierdo (botón "Subir Imagen de Referencia") y el asistente encontrará productos similares.
+
+¡Pruébalo! Pregúntale cualquier cosa en el chat de abajo. 👇
+""")
+
 # Inicializar historial de chat
 if "messages" not in st.session_state:
     st.session_state.messages = []
