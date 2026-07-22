@@ -44,7 +44,7 @@ Reglas:
         api_key = os.environ.get("GOOGLE_API_KEY")
         if api_key:
             genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel("gemini-1.5-flash")
+        self._model = genai.GenerativeModel("gemini-2.5-flash")
 
     def expand(self, query: str, n: int = 3) -> List[str]:
         """
