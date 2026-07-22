@@ -183,8 +183,10 @@ def render_evidences(evidences, msg_key=""):
             st.markdown("✨ **Re-ranking activo:** Resultados refinados por Cross-Encoder.")
 
     def render_single_evidence(ev, idx):
-        if os.path.exists(ev["local_image_path"]):
-            st.image(ev["local_image_path"], use_container_width=True)
+        # Asegurar que las rutas de Windows (\) funcionen en Linux (/) en Cloud Run
+        img_path = ev["local_image_path"].replace("\\", "/")
+        if os.path.exists(img_path):
+            st.image(img_path, use_container_width=True)
         st.markdown(f"**{ev['category']}**")
         # Mostrar score del re-ranker si existe, si no el score de CLIP
         score_text = ""
